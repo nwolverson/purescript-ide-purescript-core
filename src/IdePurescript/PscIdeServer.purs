@@ -1,6 +1,6 @@
 module IdePurescript.PscIdeServer where
 
-import Prelude (const, bind, pure, ($), (++), (==), show)
+import Prelude (const, bind, pure, ($), (++), (==), show, Unit, unit)
 import Data.Maybe(Maybe(..))
 import Data.Either (either)
 import Control.Monad.Eff.Class (liftEff)
@@ -11,7 +11,7 @@ import Control.Monad.Aff.Par (Par(Par), runPar)
 import Control.Alt ((<|>))
 import Node.ChildProcess (CHILD_PROCESS, ChildProcess, Exit(Normally), onClose, onError, defaultSpawnOptions, spawn)
 import IdePurescript.PscIde (cwd) as PscIde
-import PscIde (NET)
+import PscIde (NET, quit)
 
 data ServerStartResult =
     CorrectPath
@@ -20,6 +20,7 @@ data ServerStartResult =
   | Closed
   | StartError String
 
+-- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
 startServer :: forall eff. String -> Int -> String -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR | eff) ServerStartResult
 startServer exe port rootPath = do
   workingDir <- attempt PscIde.cwd
@@ -48,3 +49,9 @@ startServer exe port rootPath = do
         do
           log $ "Found psc-ide-server with wrong path: " ++ workingDir ++ " instead of " ++ rootPath
           pure $ WrongPath workingDir
+
+-- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
+stopServer :: forall eff. Int -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET | eff) Unit
+stopServer port cp = do
+  res <- quit
+  pure unit
