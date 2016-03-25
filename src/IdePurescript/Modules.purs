@@ -7,15 +7,25 @@ module IdePurescript.Modules (
   , getUnqualActiveModules
   , getQualModule
   , findImportInsertPos
+  , addModuleImport
+  , addExplicitImport
   ) where
 
-import Prelude ((+), ($), map, (==), (<<<), (++), pure, const, bind)
+import Prelude
 import Data.Maybe (Maybe(Nothing, Just), maybe, fromMaybe)
 import Data.Array (filter, singleton, findLastIndex)
 import Control.Monad.Aff (Aff)
-import Data.Either (either)
+import Data.Either (either, Either(..))
 import Data.String (split)
 import Data.String.Regex as R
+
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
+
+import Node.FS (FS)
+import Node.FS.Aff as FS
+import Node.Path (sep)
+import Node.Encoding (Encoding(UTF8))
 
 import PscIde as P
 import PscIde.Command as C
@@ -71,3 +81,29 @@ findImportInsertPos text =
       lines = split "\n" text
       res = fromMaybe 0 $ findLastIndex (R.test regex) lines
   in res+1
+
+foreign import tmpDir :: forall eff. Eff (fs :: FS | eff) String
+
+withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs :: FS | eff) (Either String C.ImportResult))
+  -> Aff (net :: P.NET, fs :: FS | eff) (Maybe String)
+withTempFile fileName text action = do
+  dir <- liftEff tmpDir
+  let name = R.replace (R.regex "[\\/\\\\]" (R.noFlags { global = true })) "-" fileName
+  let tmpFile = dir ++ sep ++ "ide-purescript." ++ name ++ ".purs"
+  FS.writeTextFile UTF8 tmpFile text
+  res <- action tmpFile
+  case res of
+    Right (C.SuccessFile _) -> Just <$> FS.readTextFile UTF8 tmpFile
+    _-> pure Nothing
+
+addModuleImport :: forall eff. String -> String -> String -> Aff (net :: P.NET, fs :: FS | eff) (Maybe String)
+addModuleImport fileName text moduleName =
+  withTempFile fileName text \tmpFile -> P.implicitImport tmpFile (Just tmpFile) [] moduleName
+
+addExplicitImport :: forall eff. String -> String -> (Maybe String) -> String -> Aff (net :: P.NET, fs :: FS | eff) (Maybe String)
+addExplicitImport fileName text moduleName identifier =
+  withTempFile fileName text \tmpFile -> P.explicitImport tmpFile (Just tmpFile) filters identifier
+  where
+    filters = case moduleName of
+                Nothing -> []
+                Just mn -> [C.ModuleFilter [mn]]

@@ -1,22 +1,19 @@
 module IdePurescript.Build where
 
-import Prelude (Unit, ($), bind, (++), (<<<), (==), (<$>), (||))
-
 import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION, error, catchException)
-import Control.Monad.Eff.Ref (REF, readRef, modifyRef, newRef)
-import Data.Either (Either(Right, Left))
+import Control.Monad.Eff.Ref (readRef, REF, modifyRef, newRef)
+import Data.Either (Either(..))
 import Data.Foldable (find)
-import Data.Maybe (Maybe(Just,Nothing))
+import Data.Maybe (Maybe(..))
 import Data.String (split, indexOf)
-
+import IdePurescript.PscErrors (PscResult, parsePscOutput)
 import Node.ChildProcess as CP
 import Node.Encoding (Encoding(UTF8))
 import Node.Stream as S
-
-import IdePurescript.PscErrors (PscResult, parsePscOutput)
+import Prelude (Unit, ($), bind, (++), (<<<), (==), (<$>), (||))
 
 type BuildOptions =
   { command :: Command

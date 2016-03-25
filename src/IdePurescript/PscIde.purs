@@ -79,7 +79,7 @@ getType text modulePrefix unqualModules getQualifiedModule =
               Just res -> abbrevType res.type
               Nothing -> ""
 
-type CompletionResult = {type :: String, identifier :: String}
+type CompletionResult = {type :: String, identifier :: String, module :: String}
 
 getCompletion :: forall eff. String -> String -> Boolean -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Array CompletionResult)
@@ -90,7 +90,7 @@ getCompletion prefix modulePrefix moduleCompletion unqualModules getQualifiedMod
   conv = map convCompletion
 
 convCompletion :: C.Completion -> CompletionResult
-convCompletion (C.Completion { type', identifier }) = { type: type', identifier }
+convCompletion (C.Completion { type', identifier, module' }) = { type: type', identifier, module: module' }
 
 loadDeps :: forall eff. String
   -> Aff (net :: P.NET | eff) String
