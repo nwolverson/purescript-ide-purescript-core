@@ -5,40 +5,43 @@ module IdePurescript.Modules (
   , getMainModule
   , getModulesForFile
   , getUnqualActiveModules
+  , getAllActiveModules
   , getQualModule
   , findImportInsertPos
   , addModuleImport
   , addExplicitImport
+  , ImportResult(..)
   ) where
 
-import Prelude
-import Data.Maybe (Maybe(Nothing, Just), maybe, fromMaybe)
-import Data.Array (filter, singleton, findLastIndex)
 import Control.Monad.Aff (Aff)
-import Data.Either (either, Either(..))
-import Data.String (split)
-import Data.String.Regex as R
-
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-
+import Data.Array (elemIndex, concatMap, filter, singleton, findLastIndex, (:))
+import Data.Either (either, Either(..))
+import Data.Maybe (Maybe(..), maybe, fromMaybe)
+import Data.String (split)
+import Data.String.Regex as R
+import Node.Encoding (Encoding(..))
 import Node.FS (FS)
 import Node.FS.Aff as FS
 import Node.Path (sep)
-import Node.Encoding (Encoding(UTF8))
-
+import Prelude
 import PscIde as P
 import PscIde.Command as C
 
-data Module = Unqualified String | Qualified String String
+data Module = Implicit String | Explicit String (Array String) | Qualified String String
+
+derive instance moduleEq :: Eq Module
 
 getModuleName :: Module -> String
 getModuleName (Qualified _ m) = m
-getModuleName (Unqualified m) = m
+getModuleName (Implicit m) = m
+getModuleName (Explicit m _) = m
 
 type State =
   { main :: Maybe String
   , modules :: Array Module
+  , identifiers :: Array String
   }
 
 type Path = String
@@ -55,15 +58,28 @@ getModulesForFile :: forall eff. Path -> String -> Aff (net :: P.NET | eff) Stat
 getModulesForFile file fullText = do
   imports <- P.listImports file
   let modules = either (const []) (\(C.ImportList l) -> map mod l) imports
-  let main = getMainModule fullText
-  pure { main, modules }
+      main = getMainModule fullText
+      identifiers = concatMap idents modules
+  pure { main, modules, identifiers }
   where
-  mod (C.Import { moduleName, qualifier: Nothing }) = Unqualified moduleName
+  mod (C.Import { moduleName, qualifier: Nothing, importType: C.Explicit identifiers }) =
+    Explicit moduleName identifiers
+  mod (C.Import { moduleName, qualifier: Nothing }) = Implicit moduleName
   mod (C.Import { moduleName, qualifier: Just qual }) = Qualified qual moduleName
+
+  idents (Explicit _ x) = x
+  idents _ = []
 
 getUnqualActiveModules :: State -> Array String
 getUnqualActiveModules {modules, main} =
-  map getModuleName $ maybe [] (singleton <<< Unqualified) main ++ modules
+  map getModuleName $ maybe [] (singleton <<< Implicit) main ++ filter (not <<< isQualified) modules
+  where
+  isQualified (Qualified _ _) = true
+  isQualified _ = false
+
+getAllActiveModules  :: State -> Array String
+getAllActiveModules {modules, main} =
+  map getModuleName $ maybe [] (singleton <<< Implicit) main ++ modules
 
 getQualModule :: String -> State -> Array String
 getQualModule qualifier {modules} =
@@ -73,7 +89,7 @@ getQualModule qualifier {modules} =
   qual _ _ = false
 
 initialModulesState :: State
-initialModulesState =  { main: Nothing, modules: [] }
+initialModulesState =  { main: Nothing, modules: [], identifiers: [] }
 
 findImportInsertPos :: String -> Int
 findImportInsertPos text =
@@ -84,26 +100,62 @@ findImportInsertPos text =
 
 foreign import tmpDir :: forall eff. Eff (fs :: FS | eff) String
 
+data ImportResult = UpdatedImports String | AmbiguousImport (Array C.Completion) | FailedImport
+
 withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs :: FS | eff) (Either String C.ImportResult))
-  -> Aff (net :: P.NET, fs :: FS | eff) (Maybe String)
+  -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
 withTempFile fileName text action = do
   dir <- liftEff tmpDir
   let name = R.replace (R.regex "[\\/\\\\]" (R.noFlags { global = true })) "-" fileName
-  let tmpFile = dir ++ sep ++ "ide-purescript." ++ name ++ ".purs"
+      tmpFile = dir ++ sep ++ "ide-purescript." ++ name ++ ".purs"
   FS.writeTextFile UTF8 tmpFile text
   res <- action tmpFile
-  case res of
-    Right (C.SuccessFile _) -> Just <$> FS.readTextFile UTF8 tmpFile
-    _-> pure Nothing
+  answer <- case res of
+    Right (C.SuccessFile _) -> UpdatedImports <$> FS.readTextFile UTF8 tmpFile
+    Right (C.MultipleResults a) -> pure $ AmbiguousImport a
+    _ -> pure FailedImport
+  FS.unlink tmpFile
+  pure answer
 
-addModuleImport :: forall eff. String -> String -> String -> Aff (net :: P.NET, fs :: FS | eff) (Maybe String)
-addModuleImport fileName text moduleName =
-  withTempFile fileName text \tmpFile -> P.implicitImport tmpFile (Just tmpFile) [] moduleName
-
-addExplicitImport :: forall eff. String -> String -> (Maybe String) -> String -> Aff (net :: P.NET, fs :: FS | eff) (Maybe String)
-addExplicitImport fileName text moduleName identifier =
-  withTempFile fileName text \tmpFile -> P.explicitImport tmpFile (Just tmpFile) filters identifier
+addModuleImport :: forall eff. State -> String -> String -> String
+  -> Aff (net :: P.NET, fs :: FS | eff) (Maybe { state :: State, result :: String })
+addModuleImport state fileName text moduleName =
+  case shouldAdd of
+    false -> pure Nothing
+    true -> do
+      res <- withTempFile fileName text addImport
+      pure $ case res of
+        UpdatedImports result -> Just { state, result }
+        _ -> Nothing
   where
+  addImport tmpFile = P.implicitImport tmpFile (Just tmpFile) [] moduleName
+  shouldAdd =
+    state.main /= Just moduleName && Implicit moduleName `elem` state.modules
+
+elem x l = elemIndex x l /= Nothing
+
+addExplicitImport :: forall eff. State -> String -> String -> (Maybe String) -> String
+  -> Aff (net :: P.NET, fs :: FS | eff) { state :: State, result :: ImportResult }
+addExplicitImport state fileName text moduleName identifier =
+  case shouldAdd of
+    false -> pure { state, result: FailedImport }
+    true -> do
+      result <- withTempFile fileName text addImport
+      let state' = case result of
+            UpdatedImports _ -> state { identifiers = identifier : state.identifiers }
+            _ -> state
+      pure { result, state: state' }
+  where
+    addImport tmpFile = P.explicitImport tmpFile (Just tmpFile) filters identifier
     filters = case moduleName of
                 Nothing -> []
                 Just mn -> [C.ModuleFilter [mn]]
+    isThisModule = case moduleName of
+      Just _ -> moduleName == state.main
+      _ -> false
+
+    shouldAdd = not isThisModule
+      && not (identifier `elem` state.identifiers)
+      && isIdent identifier
+      && maybe true (\mn -> not $ Implicit mn `elem` state.modules) moduleName
+    isIdent = R.test (R.regex """^[a-z_]\S*$""" R.noFlags)
