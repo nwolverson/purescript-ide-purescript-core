@@ -16,11 +16,12 @@ module IdePurescript.Modules (
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Data.Array (elemIndex, concatMap, filter, singleton, findLastIndex, (:))
+import Data.Array ((:), findLastIndex, filter, singleton, concatMap)
 import Data.Either (either, Either(..))
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.String (split)
 import Data.String.Regex as R
+import Data.Foldable (elem)
 import Node.Encoding (Encoding(..))
 import Node.FS (FS)
 import Node.FS.Aff as FS
@@ -70,12 +71,13 @@ getModulesForFile file fullText = do
   idents (Explicit _ x) = x
   idents _ = []
 
-getUnqualActiveModules :: State -> Array String
-getUnqualActiveModules {modules, main} =
-  map getModuleName $ maybe [] (singleton <<< Implicit) main ++ filter (not <<< isQualified) modules
+getUnqualActiveModules :: State -> Maybe String -> Array String
+getUnqualActiveModules {modules, main} ident =
+  map getModuleName $ maybe [] (singleton <<< Implicit) main ++ filter include modules
   where
-  isQualified (Qualified _ _) = true
-  isQualified _ = false
+  include (Qualified _ _) = false
+  include (Explicit _ idents) = maybe false (_ `elem` idents) ident
+  include (Implicit _) = true
 
 getAllActiveModules  :: State -> Array String
 getAllActiveModules {modules, main} =
@@ -131,8 +133,6 @@ addModuleImport state fileName text moduleName =
   addImport tmpFile = P.implicitImport tmpFile (Just tmpFile) [] moduleName
   shouldAdd =
     state.main /= Just moduleName && Implicit moduleName `elem` state.modules
-
-elem x l = elemIndex x l /= Nothing
 
 addExplicitImport :: forall eff. State -> String -> String -> (Maybe String) -> String
   -> Aff (net :: P.NET, fs :: FS | eff) { state :: State, result :: ImportResult }
