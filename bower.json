@@ -23,6 +23,7 @@
     "purescript-nullable": "^0.2.1",
     "purescript-node-fs": "^0.10.0",
     "purescript-node-child-process": "^0.5.1",
-    "purescript-node-fs-aff": "^0.5.0"
+    "purescript-node-fs-aff": "^0.5.0",
+    "purescript-psc-ide": "git@github.com:kRITZCREEK/purescript-psc-ide.git#import"
   }
 }
