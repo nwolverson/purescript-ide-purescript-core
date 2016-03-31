@@ -156,6 +156,4 @@ addExplicitImport state fileName text moduleName identifier =
 
     shouldAdd = not isThisModule
       && not (identifier `elem` state.identifiers)
-      && isIdent identifier
       && maybe true (\mn -> not $ Implicit mn `elem` state.modules) moduleName
-    isIdent = R.test (R.regex """^[a-z_]\S*$""" R.noFlags)
