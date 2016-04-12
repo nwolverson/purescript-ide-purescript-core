@@ -15,15 +15,15 @@
     "purescript-maybe": "^0.3.5",
     "purescript-either": "^0.2.3",
     "purescript-arrays": "^0.4.4",
-    "purescript-aff": "^0.14.1",
+    "purescript-aff": "^0.16.1",
     "purescript-argonaut": "^0.12.0",
     "purescript-strings": "^0.7.1",
     "purescript-psc-ide": "^1.1.0",
     "purescript-refs": "^0.2.0",
     "purescript-nullable": "^0.2.1",
-    "purescript-node-fs": "^0.10.0",
-    "purescript-node-child-process": "^0.5.1",
-    "purescript-node-fs-aff": "^0.5.0",
+    "purescript-node-fs": "^0.11.0",
+    "purescript-node-child-process": "^0.6.1",
+    "purescript-node-fs-aff": "^0.6.0",
     "purescript-psc-ide": "git@github.com:kRITZCREEK/purescript-psc-ide.git#import"
   }
 }
