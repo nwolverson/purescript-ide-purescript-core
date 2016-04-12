@@ -1,5 +1,5 @@
 module IdePurescript.PscIde (getCompletion, cwd, loadDeps, getType, eitherToErr
-  , getPursuitModuleCompletion, getPursuitCompletion, getAvailableModules, SearchResult, ModuleSearchResult) where
+  , getPursuitModuleCompletion, getPursuitCompletion, getAvailableModules, getLoadedModules, SearchResult, ModuleSearchResult) where
 
 import Prelude (map, ($), pure, bind, (<$>), return)
 import Data.Either (Either(Right, Left))
@@ -44,6 +44,11 @@ getImports' s = result conv $ P.listImports s
 
 getAvailableModules :: forall eff. Aff (net :: P.NET | eff) (Array String)
 getAvailableModules = result conv P.listAvailableModules
+  where
+  conv (C.ModuleList modules) = modules
+
+getLoadedModules :: forall eff. Aff (net :: P.NET | eff) (Array String)
+getLoadedModules = result conv P.listLoadedModules
   where
   conv (C.ModuleList modules) = modules
 
