@@ -1,25 +1,30 @@
 module IdePurescript.PscErrors where
 
-import Prelude ((<*>), (<$>), map, ($), pure, (>>=), (<<<))
+import Prelude
+import Control.Alt ((<|>))
+import Control.Bind ((<=<))
+import Data.Argonaut (decodeJson, class DecodeJson)
+import Data.Argonaut.Combinators ((.?))
+import Data.Argonaut.Core (JObject, toObject)
+import Data.Argonaut.Parser (jsonParser)
+import Data.Array (singleton)
 import Data.Either (Either(Left))
 import Data.Maybe (Maybe(Just, Nothing), maybe)
-import Data.Argonaut.Core (JObject, toObject)
-import Data.Argonaut.Combinators ((.?))
-import Data.Argonaut.Parser (jsonParser)
 import Data.Traversable (traverse)
-import Control.Bind ((<=<))
 
 type ErrorCode = String
 type ModuleName = String
 type Filename = String
 type Lines = Array String
 
+newtype RebuildResult = RebuildResult (Array PscError)
+
 type PscResult =
   { warnings :: Array PscError
   , errors :: Array PscError
   }
 
-type PscError =
+newtype PscError = PscError
   { moduleName :: Maybe ModuleName
   , errorCode :: ErrorCode
   , message :: String
@@ -36,6 +41,12 @@ type Position =
   , endColumn :: Int
   }
 
+instance decodeRebuildResult :: DecodeJson RebuildResult where
+  decodeJson json = RebuildResult <$> (decodeJson json <|> (singleton <$> decodeJson json))
+
+instance decodeJsonPscError :: DecodeJson PscError where
+  decodeJson json = decodeJson json >>= parsePscError
+
 parsePscOutput :: String -> Either String PscResult
 parsePscOutput = maybe (Left "not object") parsePscResult <<< toObject <=< jsonParser
 
@@ -47,7 +58,7 @@ parsePscResult obj =
     <*> (obj .? "errors" >>= traverse parsePscError)
 
 parsePscError :: JObject -> Either String PscError
-parsePscError obj =
+parsePscError obj = PscError <$> (
   { moduleName: _
   , errorCode: _
   , message: _
@@ -61,7 +72,7 @@ parsePscError obj =
     <*> obj .? "filename"
     <*> (obj .? "position" >>= parsePosition)
     <*> obj .? "errorLink"
-    <*> (obj .? "suggestion" >>= parseSuggestion)
+    <*> (obj .? "suggestion" >>= parseSuggestion))
 
 parsePosition :: Maybe JObject -> Either String (Maybe Position)
 parsePosition =

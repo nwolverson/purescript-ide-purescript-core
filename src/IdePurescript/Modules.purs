@@ -55,9 +55,9 @@ getMainModule text =
   where
   regex = R.regex """module\s+([\w.]+)""" $ R.noFlags { multiline = true }
 
-getModulesForFile :: forall eff. Path -> String -> Aff (net :: P.NET | eff) State
-getModulesForFile file fullText = do
-  imports <- P.listImports file
+getModulesForFile :: forall eff. Int -> Path -> String -> Aff (net :: P.NET | eff) State
+getModulesForFile port file fullText = do
+  imports <- P.listImports port file 
   let modules = either (const []) (\(C.ImportList l) -> map mod l) imports
       main = getMainModule fullText
       identifiers = concatMap idents modules
@@ -119,9 +119,9 @@ withTempFile fileName text action = do
   FS.unlink tmpFile
   pure answer
 
-addModuleImport :: forall eff. State -> String -> String -> String
+addModuleImport :: forall eff. State -> Int -> String -> String -> String
   -> Aff (net :: P.NET, fs :: FS | eff) (Maybe { state :: State, result :: String })
-addModuleImport state fileName text moduleName =
+addModuleImport state port fileName text moduleName =
   case shouldAdd of
     false -> pure Nothing
     true -> do
@@ -130,13 +130,13 @@ addModuleImport state fileName text moduleName =
         UpdatedImports result -> Just { state, result }
         _ -> Nothing
   where
-  addImport tmpFile = P.implicitImport tmpFile (Just tmpFile) [] moduleName
+  addImport tmpFile = P.implicitImport port tmpFile (Just tmpFile) [] moduleName
   shouldAdd =
     state.main /= Just moduleName && Implicit moduleName `elem` state.modules
 
-addExplicitImport :: forall eff. State -> String -> String -> (Maybe String) -> String
+addExplicitImport :: forall eff. State -> Int -> String -> String -> (Maybe String) -> String
   -> Aff (net :: P.NET, fs :: FS | eff) { state :: State, result :: ImportResult }
-addExplicitImport state fileName text moduleName identifier =
+addExplicitImport state port fileName text moduleName identifier =
   case shouldAdd of
     false -> pure { state, result: FailedImport }
     true -> do
@@ -146,7 +146,7 @@ addExplicitImport state fileName text moduleName identifier =
             _ -> state
       pure { result, state: state' }
   where
-    addImport tmpFile = P.explicitImport tmpFile (Just tmpFile) filters identifier
+    addImport tmpFile = P.explicitImport port tmpFile (Just tmpFile) filters identifier
     filters = case moduleName of
                 Nothing -> []
                 Just mn -> [C.ModuleFilter [mn]]

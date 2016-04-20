@@ -1,19 +1,23 @@
 module IdePurescript.Build where
 
+import Node.ChildProcess as CP
+import Node.Stream as S
+import PscIde as P
+import PscIde.Command as PC
 import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION, error, catchException)
 import Control.Monad.Eff.Ref (readRef, REF, modifyRef, newRef)
-import Data.Either (Either(..))
+import Control.Monad.Error.Class (throwError)
+import Data.Either (either, Either(..))
 import Data.Foldable (find)
 import Data.Maybe (Maybe(..))
 import Data.String (split, indexOf)
-import IdePurescript.PscErrors (PscResult, parsePscOutput)
-import Node.ChildProcess as CP
+import IdePurescript.PscErrors (RebuildResult(RebuildResult), PscResult, parsePscOutput)
 import Node.Encoding (Encoding(UTF8))
-import Node.Stream as S
-import Prelude (Unit, ($), bind, (++), (<<<), (==), (<$>), (||))
+import Prelude (pure, Unit, ($), bind, (++), (<<<), (==), (<$>), (||))
+import PscIde (NET)
 
 type BuildOptions =
   { command :: Command
@@ -52,3 +56,20 @@ build { command: Command cmd args, directory } = makeAff $ \err succ -> do
         Just (Right r) -> succ { errors: r, success: n == 0 }
         Nothing -> err $ error "Didn't find JSON output"
     _ -> err $ error "Process exited abnormally")
+
+
+rebuild :: forall eff. Int -> String -> Aff (net :: NET | eff) BuildResult
+rebuild port file = do
+  res <- rebuild' port file
+  either
+    (throwError <<< error)
+    (pure <<< onResult)
+    res
+  where
+  onResult :: Either RebuildResult RebuildResult -> BuildResult
+  onResult =
+    either (\(RebuildResult errors)   -> { errors: { errors, warnings: [] }, success: false })
+           (\(RebuildResult warnings) -> { errors: { errors: [], warnings }, success: true  })
+
+  rebuild' :: Int -> String -> P.CmdR RebuildResult RebuildResult
+  rebuild' port file = P.sendCommandR port (PC.RebuildCmd file)

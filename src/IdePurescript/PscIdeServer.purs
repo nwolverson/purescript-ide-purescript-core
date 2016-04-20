@@ -23,7 +23,7 @@ data ServerStartResult =
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
 startServer :: forall eff. String -> Int -> String -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR | eff) ServerStartResult
 startServer exe port rootPath = do
-  workingDir <- attempt PscIde.cwd
+  workingDir <- attempt $ PscIde.cwd port
   either (const launchServer) gotPath workingDir
   where
 
@@ -53,5 +53,5 @@ startServer exe port rootPath = do
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
 stopServer :: forall eff. Int -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET | eff) Unit
 stopServer port cp = do
-  res <- quit
+  res <- quit port
   pure unit
