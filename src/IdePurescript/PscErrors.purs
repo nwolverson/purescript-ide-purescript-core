@@ -8,7 +8,7 @@ import Data.Argonaut.Combinators ((.?))
 import Data.Argonaut.Core (JObject, toObject)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Array (singleton)
-import Data.Either (Either(Left))
+import Data.Either (either, Either(Left))
 import Data.Maybe (Maybe(Just, Nothing), maybe)
 import Data.Traversable (traverse)
 
@@ -31,7 +31,12 @@ newtype PscError = PscError
   , filename :: Maybe Filename
   , position :: Maybe Position
   , errorLink :: String
-  , suggestion :: Maybe String
+  , suggestion :: Maybe PscSuggestion
+  }
+
+type PscSuggestion =
+  { replacement :: String
+  , replaceRange :: Maybe Position
   }
 
 type Position =
@@ -86,6 +91,9 @@ parsePosition =
       <*> obj .? "endLine"
       <*> obj .? "endColumn"
 
-parseSuggestion :: Maybe JObject -> Either String (Maybe String)
+parseSuggestion :: Maybe JObject -> Either String (Maybe PscSuggestion)
 parseSuggestion =
-  maybe (pure Nothing) \obj -> obj .? "replacement"
+  maybe (pure Nothing) \obj -> do
+    replacement <- obj .? "replacement"
+    replaceRange <- pure $ either (const Nothing) id (obj .? "replaceRange" >>= parsePosition)
+    pure $ Just { replacement, replaceRange }
