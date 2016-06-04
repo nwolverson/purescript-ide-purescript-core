@@ -74,10 +74,10 @@ abbrevType :: String -> String
 abbrevType = replace r "$1"
   where r = regex """(?:\w+\.)+(\w+)""" $ noFlags { global = true}
 
-getType :: forall eff. Int -> String -> String -> Array String -> (String -> Array String)
+getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) String
-getType port text modulePrefix unqualModules getQualifiedModule =
-  result conv $ P.type' port text $ moduleFilters mods
+getType port text currentModule modulePrefix unqualModules getQualifiedModule =
+  result conv $ P.type' port text (moduleFilters mods) currentModule
   where
     mods = moduleFilterModules modulePrefix unqualModules getQualifiedModule
     conv r = case head $ map convCompletion r of
@@ -86,10 +86,10 @@ getType port text modulePrefix unqualModules getQualifiedModule =
 
 type CompletionResult = {type :: String, identifier :: String, module :: String}
 
-getCompletion :: forall eff. Int -> String -> String -> Boolean -> Array String -> (String -> Array String)
+getCompletion :: forall eff. Int -> String -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Array CompletionResult)
-getCompletion port prefix modulePrefix moduleCompletion unqualModules getQualifiedModule =
-  conv <$> (eitherToErr $ P.complete port (C.PrefixFilter prefix : moduleFilters mods) Nothing)
+getCompletion port prefix currentModule modulePrefix moduleCompletion unqualModules getQualifiedModule =
+  conv <$> (eitherToErr $ P.complete port (C.PrefixFilter prefix : moduleFilters mods) Nothing currentModule)
   where
   mods = if moduleCompletion then [] else moduleFilterModules modulePrefix unqualModules getQualifiedModule
   conv = map convCompletion

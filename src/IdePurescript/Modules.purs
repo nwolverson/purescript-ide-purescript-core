@@ -13,22 +13,22 @@ module IdePurescript.Modules (
   , ImportResult(..)
   ) where
 
+import Prelude
+import Data.String.Regex as R
+import Node.FS.Aff as FS
+import PscIde as P
+import PscIde.Command as C
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Array ((:), findLastIndex, filter, singleton, concatMap)
 import Data.Either (either, Either(..))
+import Data.Foldable (notElem, elem)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.String (split)
-import Data.String.Regex as R
-import Data.Foldable (elem)
 import Node.Encoding (Encoding(..))
 import Node.FS (FS)
-import Node.FS.Aff as FS
 import Node.Path (sep)
-import Prelude
-import PscIde as P
-import PscIde.Command as C
 
 data Module = Implicit String | Explicit String (Array String) | Qualified String String
 
@@ -57,7 +57,7 @@ getMainModule text =
 
 getModulesForFile :: forall eff. Int -> Path -> String -> Aff (net :: P.NET | eff) State
 getModulesForFile port file fullText = do
-  imports <- P.listImports port file 
+  imports <- P.listImports port file
   let modules = either (const []) (\(C.ImportList l) -> map mod l) imports
       main = getMainModule fullText
       identifiers = concatMap idents modules
@@ -132,7 +132,7 @@ addModuleImport state port fileName text moduleName =
   where
   addImport tmpFile = P.implicitImport port tmpFile (Just tmpFile) [] moduleName
   shouldAdd =
-    state.main /= Just moduleName && Implicit moduleName `elem` state.modules
+    state.main /= Just moduleName && (Implicit moduleName `notElem` state.modules)
 
 addExplicitImport :: forall eff. State -> Int -> String -> String -> (Maybe String) -> String
   -> Aff (net :: P.NET, fs :: FS | eff) { state :: State, result :: ImportResult }
