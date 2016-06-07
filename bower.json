@@ -17,7 +17,7 @@
     "purescript-aff": "^0.16.1",
     "purescript-argonaut": "^0.12.0",
     "purescript-strings": "^0.7.1",
-    "purescript-psc-ide": "^2.1.0",
+    "purescript-psc-ide": "^3.0.0",
     "purescript-refs": "^0.2.0",
     "purescript-nullable": "^0.2.1",
     "purescript-node-fs": "^0.11.0",
