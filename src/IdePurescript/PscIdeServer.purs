@@ -4,46 +4,67 @@ import Prelude
 import PscIde.Server as S
 import Control.Monad.Aff (Aff, attempt)
 import Control.Monad.Aff.AVar (AVAR)
+import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Random (RANDOM)
 import Data.Either (either)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(Nothing, Just))
 import IdePurescript.PscIde (cwd) as PscIde
 import Node.ChildProcess (CHILD_PROCESS, ChildProcess)
+import Node.FS (FS)
 import PscIde (NET)
+import PscIde.Server (pickFreshPort, savePort, getSavedPort)
+
+type Port = Int
 
 data ServerStartResult =
-    CorrectPath
-  | WrongPath String
-  | Started ChildProcess
+    CorrectPath Port
+  | WrongPath Port String
+  | Started Port ChildProcess
   | Closed
   | StartError String
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
-startServer :: forall eff. String -> Int -> String -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR | eff) ServerStartResult
-startServer exe port rootPath = do
-  workingDir <- attempt $ PscIde.cwd port
-  either (const launchServer) gotPath workingDir
+startServer :: forall eff. String -> String -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, err :: EXCEPTION, random :: RANDOM | eff) ServerStartResult
+startServer exe rootPath = do
+  port <- liftEff'' $ getSavedPort rootPath
+  case port of
+    Just p -> do
+      workingDir <- attempt $ PscIde.cwd p
+      liftEff'' $ log $ "Found existing port from file: " <> show port <> ", cwd: "
+      either (const launchServer) (gotPath p) workingDir
+    Nothing -> launchServer
+
   where
+  liftEff'' :: forall e a. Eff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, err :: EXCEPTION, random :: RANDOM | e) a
+                        -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, err :: EXCEPTION, random :: RANDOM | e) a
+  liftEff'' = liftEff
 
   launchServer = do
-    liftEff $ log "Starting psc-ide-server"
-    r <$> S.startServer exe port (Just rootPath)
+    newPort <- liftEff'' pickFreshPort
+    liftEff $ do
+      log $ "Starting psc-ide-server on port " <> show newPort
+      savePort newPort rootPath
+    r newPort <$> S.startServer exe newPort (Just rootPath)
     where
-      r (S.Started cp) = Started cp
-      r (S.Closed) = Closed
-      r (S.StartError s) = StartError s
+      r newPort (S.Started cp) = Started newPort cp
+      r _ (S.Closed) = Closed
+      r _ (S.StartError s) = StartError s
 
-  gotPath workingDir =
+  gotPath port workingDir =
     liftEff $ if workingDir == rootPath then
         do
           log $ "Found psc-ide-server with correct path: " <> workingDir
-          pure CorrectPath
+          pure $ CorrectPath port
       else
         do
           log $ "Found psc-ide-server with wrong path: " <> workingDir <> " instead of " <> rootPath
-          pure $ WrongPath workingDir
+          pure $ WrongPath port workingDir
 
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
-stopServer :: forall eff. Int -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET | eff) Unit
-stopServer port cp = S.stopServer port
+stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS, err :: EXCEPTION | eff) Unit
+stopServer port rootPath cp = do
+  liftEff $ S.deleteSavedPort rootPath
+  S.stopServer port
