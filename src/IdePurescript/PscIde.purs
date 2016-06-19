@@ -2,7 +2,7 @@ module IdePurescript.PscIde (getCompletion, cwd, loadDeps, getType, eitherToErr
   , getPursuitModuleCompletion, getPursuitCompletion, getAvailableModules, getLoadedModules, SearchResult, ModuleSearchResult) where
 
 import Prelude
-import Data.Either (Either(Right, Left))
+import Data.Either (Either(Right, Left), either)
 import Data.Maybe(Maybe(Nothing,Just))
 import Data.Array((:), null, head)
 import PscIde as P
@@ -12,16 +12,17 @@ import Control.Monad.Eff.Exception as Ex
 import Control.Monad.Error.Class (throwError)
 import Data.Nullable (toNullable, Nullable)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
-import Data.Argonaut.Combinators ((.?))
+import Data.Argonaut.Decode.Combinators ((.?))
 import Data.String as S
-import Data.String.Regex (replace, noFlags, regex)
+import Data.String.Regex (noFlags, regex)
+import IdePurescript.Regex (replace')
 
 eitherToErr :: forall a eff. Aff (net :: P.NET | eff) (Either String a) -> (Aff (net :: P.NET | eff) a)
 eitherToErr c = do
   r <- c
   case r of
     Left s -> throwError (Ex.error s)
-    Right res -> return res
+    Right res -> pure res
 
 result :: forall eff a b. (a -> b) ->  Aff (net :: P.NET | eff) (Either String a) -> Aff (net :: P.NET | eff) b
 result f a = eitherToErr ((f <$> _) <$> a)
@@ -71,8 +72,8 @@ moduleFilters modules = [ C.ModuleFilter modules ]
 
 
 abbrevType :: String -> String
-abbrevType = replace r "$1"
-  where r = regex """(?:\w+\.)+(\w+)""" $ noFlags { global = true}
+abbrevType = replace' r "$1"
+  where r = regex """(?:\w+\.)+(\w+)""" $ noFlags { global = true }
 
 getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) String

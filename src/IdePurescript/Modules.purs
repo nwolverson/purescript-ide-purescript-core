@@ -30,6 +30,8 @@ import Node.Encoding (Encoding(..))
 import Node.FS (FS)
 import Node.Path (sep)
 
+import IdePurescript.Regex (replace', match', test')
+
 data Module = Implicit String | Explicit String (Array String) | Qualified String String
 
 derive instance moduleEq :: Eq Module
@@ -49,7 +51,7 @@ type Path = String
 
 getMainModule :: String -> Maybe String
 getMainModule text =
-  case R.match regex text of
+  case match' regex text of
     Just [_, Just m] -> Just m
     _ -> Nothing
   where
@@ -73,7 +75,7 @@ getModulesForFile port file fullText = do
 
 getUnqualActiveModules :: State -> Maybe String -> Array String
 getUnqualActiveModules {modules, main} ident =
-  map getModuleName $ maybe [] (singleton <<< Implicit) main ++ filter include modules
+  map getModuleName $ maybe [] (singleton <<< Implicit) main <> filter include modules
   where
   include (Qualified _ _) = false
   include (Explicit _ idents) = maybe false (_ `elem` idents) ident
@@ -81,7 +83,7 @@ getUnqualActiveModules {modules, main} ident =
 
 getAllActiveModules  :: State -> Array String
 getAllActiveModules {modules, main} =
-  map getModuleName $ maybe [] (singleton <<< Implicit) main ++ modules
+  map getModuleName $ maybe [] (singleton <<< Implicit) main <> modules
 
 getQualModule :: String -> State -> Array String
 getQualModule qualifier {modules} =
@@ -97,7 +99,7 @@ findImportInsertPos :: String -> Int
 findImportInsertPos text =
   let regex = R.regex """^(module|import) [A-Z][^(]*($|\([^()]*\))""" R.noFlags
       lines = split "\n" text
-      res = fromMaybe 0 $ findLastIndex (R.test regex) lines
+      res = fromMaybe 0 $ findLastIndex (test' regex) lines
   in res+1
 
 foreign import tmpDir :: forall eff. Eff (fs :: FS | eff) String
@@ -108,8 +110,8 @@ withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs
   -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
 withTempFile fileName text action = do
   dir <- liftEff tmpDir
-  let name = R.replace (R.regex "[\\/\\\\]" (R.noFlags { global = true })) "-" fileName
-      tmpFile = dir ++ sep ++ "ide-purescript." ++ name ++ ".purs"
+  let name = replace' (R.regex "[\\/\\\\]" (R.noFlags { global = true })) "-" fileName
+      tmpFile = dir <> sep <> "ide-purescript." <> name <> ".purs"
   FS.writeTextFile UTF8 tmpFile text
   res <- action tmpFile
   answer <- case res of
