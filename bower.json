@@ -21,7 +21,7 @@
     "purescript-refs": "^1.0.0",
     "purescript-nullable": "^1.0.1",
     "purescript-node-fs": "^1.0.0",
-    "purescript-node-child-process": "git@github.com:purescript-node/purescript-node-child-process.git#1.0-updates",
+    "purescript-node-child-process": "^1.0.0",
     "purescript-node-fs-aff": "^1.0.0"
   }
 }
