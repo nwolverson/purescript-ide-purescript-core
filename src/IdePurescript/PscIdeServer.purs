@@ -37,11 +37,11 @@ startServer exe port rootPath = do
   gotPath workingDir =
     liftEff $ if workingDir == rootPath then
         do
-          log $ "Found psc-ide-server with correct path: " ++ workingDir
+          log $ "Found psc-ide-server with correct path: " <> workingDir
           pure CorrectPath
       else
         do
-          log $ "Found psc-ide-server with wrong path: " ++ workingDir ++ " instead of " ++ rootPath
+          log $ "Found psc-ide-server with wrong path: " <> workingDir <> " instead of " <> rootPath
           pure $ WrongPath workingDir
 
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...

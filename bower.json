@@ -10,18 +10,18 @@
     "output"
   ],
   "dependencies": {
-    "purescript-console": "^0.1.0",
-    "purescript-maybe": "^0.3.5",
-    "purescript-either": "^0.2.3",
-    "purescript-arrays": "^0.4.4",
-    "purescript-aff": "^0.16.1",
-    "purescript-argonaut": "^0.12.0",
-    "purescript-strings": "^0.7.1",
-    "purescript-psc-ide": "^3.0.0",
-    "purescript-refs": "^0.2.0",
-    "purescript-nullable": "^0.2.1",
-    "purescript-node-fs": "^0.11.0",
-    "purescript-node-child-process": "^0.6.1",
-    "purescript-node-fs-aff": "^0.6.0"
+    "purescript-console": "^1.0.0",
+    "purescript-maybe": "^1.0.0",
+    "purescript-either": "^1.0.0",
+    "purescript-arrays": "^1.0.0",
+    "purescript-aff": "^1.0.0",
+    "purescript-argonaut": "^1.0.0",
+    "purescript-strings": "^1.0.0",
+    "purescript-psc-ide": "https://github.com/anttih/purescript-psc-ide.git#psc-0.9-updates",
+    "purescript-refs": "^1.0.0",
+    "purescript-nullable": "^1.0.1",
+    "purescript-node-fs": "^1.0.0",
+    "purescript-node-child-process": "git@github.com:purescript-node/purescript-node-child-process.git#1.0-updates",
+    "purescript-node-fs-aff": "^1.0.0"
   }
 }

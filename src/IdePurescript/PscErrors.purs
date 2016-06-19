@@ -4,7 +4,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Control.Bind ((<=<))
 import Data.Argonaut (decodeJson, class DecodeJson)
-import Data.Argonaut.Combinators ((.?))
+import Data.Argonaut.Decode.Combinators ((.?))
 import Data.Argonaut.Core (JObject, toObject)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Array (singleton)

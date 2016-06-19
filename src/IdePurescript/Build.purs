@@ -1,5 +1,6 @@
 module IdePurescript.Build where
 
+import Prelude
 import Node.ChildProcess as CP
 import Node.Stream as S
 import PscIde as P
@@ -16,8 +17,8 @@ import Data.Maybe (Maybe(..))
 import Data.String (split, indexOf)
 import IdePurescript.PscErrors (RebuildResult(RebuildResult), PscResult, parsePscOutput)
 import Node.Encoding (Encoding(UTF8))
-import Prelude (pure, Unit, ($), bind, (++), (<<<), (==), (<$>), (||))
 import PscIde (NET)
+import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
 
 type BuildOptions =
   { command :: Command
@@ -33,7 +34,7 @@ type BuildResult =
   }
 
 addExceptionEffect :: forall eff a. Eff eff a -> Eff (err :: EXCEPTION | eff) a
-addExceptionEffect = Control.Monad.Eff.Unsafe.unsafeInterleaveEff
+addExceptionEffect = unsafeInterleaveEff
 
 build :: forall eff. BuildOptions -> Aff (cp :: CP.CHILD_PROCESS, console :: CONSOLE, ref :: REF | eff) BuildResult
 build { command: Command cmd args, directory } = makeAff $ \err succ -> do
@@ -43,7 +44,7 @@ build { command: Command cmd args, directory } = makeAff $ \err succ -> do
   result <- newRef ""
   let res :: String -> Eff (console :: CONSOLE, cp :: CP.CHILD_PROCESS, err :: EXCEPTION, ref :: REF | eff) Unit
       res s = do
-        modifyRef result (\acc -> acc++s)
+        modifyRef result (\acc -> acc<>s)
 
   catchException err $ S.onDataString stderr UTF8 res
   CP.onClose cp (\exit -> case exit of
