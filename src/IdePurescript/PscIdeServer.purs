@@ -66,5 +66,6 @@ startServer exe rootPath = do
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
 stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS, err :: EXCEPTION | eff) Unit
 stopServer port rootPath cp = do
-  liftEff $ S.deleteSavedPort rootPath
+  oldPort <- liftEff $ S.getSavedPort rootPath
+  liftEff $ when (oldPort == Just port) $ S.deleteSavedPort rootPath
   S.stopServer port
