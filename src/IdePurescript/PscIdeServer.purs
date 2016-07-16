@@ -33,7 +33,7 @@ startServer exe rootPath = do
   case port of
     Just p -> do
       workingDir <- attempt $ PscIde.cwd p
-      liftEff'' $ log $ "Found existing port from file: " <> show port <> ", cwd: "
+      liftEff'' $ log $ "Found existing port from file: " <> show p <> (either (const "") (", cwd: " <> _) workingDir)
       either (const launchServer) (gotPath p) workingDir
     Nothing -> launchServer
 
@@ -45,7 +45,7 @@ startServer exe rootPath = do
   launchServer = do
     newPort <- liftEff'' pickFreshPort
     liftEff $ do
-      log $ "Starting psc-ide-server on port " <> show newPort
+      log $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
     r newPort <$> S.startServer exe newPort (Just rootPath)
     where
