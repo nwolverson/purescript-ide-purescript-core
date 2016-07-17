@@ -17,7 +17,7 @@
     "purescript-aff": "^1.0.0",
     "purescript-argonaut": "^1.0.0",
     "purescript-strings": "^1.0.0",
-    "purescript-psc-ide": "git@github.com:kRITZCREEK/purescript-psc-ide.git#start-multiple-servers",
+    "purescript-psc-ide": "git@github.com:kRITZCREEK/purescript-psc-ide.git#	d2a8bfc",
     "purescript-refs": "^1.0.0",
     "purescript-nullable": "^1.0.1",
     "purescript-node-fs": "^1.0.0",

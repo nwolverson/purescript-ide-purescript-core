@@ -1,21 +1,23 @@
 module IdePurescript.PscIde (getCompletion, cwd, loadDeps, getType, eitherToErr
-  , getPursuitModuleCompletion, getPursuitCompletion, getAvailableModules, getLoadedModules, SearchResult, ModuleSearchResult) where
+  , getPursuitModuleCompletion, getPursuitCompletion, getAvailableModules, getLoadedModules, SearchResult, ModuleSearchResult
+  , getTypeInfo) where
 
 import Prelude
-import Data.Either (Either(Right, Left), either)
-import Data.Maybe(Maybe(Nothing,Just))
-import Data.Array((:), null, head)
+import Control.Monad.Eff.Exception as Ex
+import Data.String as S
 import PscIde as P
 import PscIde.Command as C
 import Control.Monad.Aff (Aff)
-import Control.Monad.Eff.Exception as Ex
 import Control.Monad.Error.Class (throwError)
-import Data.Nullable (toNullable, Nullable)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Decode.Combinators ((.?))
-import Data.String as S
+import Data.Array ((:), null, head)
+import Data.Either (Either(Right, Left))
+import Data.Maybe (maybe, Maybe(Nothing, Just))
+import Data.Nullable (toNullable, Nullable)
 import Data.String.Regex (noFlags, regex)
 import IdePurescript.Regex (replace')
+import PscIde.Command (TypePosition(TypePosition))
 
 eitherToErr :: forall a eff. Aff (net :: P.NET | eff) (Either String a) -> (Aff (net :: P.NET | eff) a)
 eitherToErr c = do
@@ -75,15 +77,24 @@ abbrevType :: String -> String
 abbrevType = replace' r "$1"
   where r = regex """(?:\w+\.)+(\w+)""" $ noFlags { global = true }
 
-getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
-  -> Aff (net :: P.NET | eff) String
-getType port text currentModule modulePrefix unqualModules getQualifiedModule =
+type TypeResult = {type :: String, identifier :: String, module :: String, position :: Maybe TypePosition}
+
+getTypeInfo :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
+  -> Aff (net :: P.NET | eff) (Maybe TypeResult)
+getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule =
   result conv $ P.type' port text (moduleFilters mods) currentModule
   where
     mods = moduleFilterModules modulePrefix unqualModules getQualifiedModule
-    conv r = case head $ map convCompletion r of
-              Just res -> abbrevType res.type
-              Nothing -> ""
+    conv r = head $ map convCompletion r
+
+    convCompletion :: C.TypeInfo -> TypeResult
+    convCompletion (C.TypeInfo { type', identifier, module', definedAt }) =
+      { type: type', identifier, module: module', position: definedAt }
+
+getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
+  -> Aff (net :: P.NET | eff) String
+getType port text currentModule modulePrefix unqualModules getQualifiedModule =
+  (maybe "" _.type) <$> getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule
 
 type CompletionResult = {type :: String, identifier :: String, module :: String}
 
@@ -95,8 +106,8 @@ getCompletion port prefix currentModule modulePrefix moduleCompletion unqualModu
   mods = if moduleCompletion then [] else moduleFilterModules modulePrefix unqualModules getQualifiedModule
   conv = map convCompletion
 
-convCompletion :: C.Completion -> CompletionResult
-convCompletion (C.Completion { type', identifier, module' }) = { type: type', identifier, module: module' }
+  convCompletion :: C.Completion -> CompletionResult
+  convCompletion (C.Completion { type', identifier, module' }) = { type: type', identifier, module: module' }
 
 loadDeps :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) String

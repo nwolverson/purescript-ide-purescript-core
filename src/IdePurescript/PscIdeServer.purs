@@ -12,10 +12,10 @@ import Control.Monad.Eff.Random (RANDOM)
 import Data.Either (either)
 import Data.Maybe (Maybe(Nothing, Just))
 import IdePurescript.PscIde (cwd) as PscIde
-import Node.ChildProcess (CHILD_PROCESS, ChildProcess)
+import Node.ChildProcess (pipe, CHILD_PROCESS, ChildProcess)
 import Node.FS (FS)
 import PscIde (NET)
-import PscIde.Server (pickFreshPort, savePort, getSavedPort)
+import PscIde.Server (defaultServerArgs, pickFreshPort, savePort, getSavedPort)
 
 type Port = Int
 
@@ -27,8 +27,8 @@ data ServerStartResult =
   | StartError String
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
-startServer :: forall eff. String -> String -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, err :: EXCEPTION, random :: RANDOM | eff) ServerStartResult
-startServer exe rootPath = do
+startServer :: forall eff. String -> String -> Array String -> Aff (cp :: CHILD_PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, err :: EXCEPTION, random :: RANDOM | eff) ServerStartResult
+startServer exe rootPath glob = do
   port <- liftEff'' $ getSavedPort rootPath
   case port of
     Just p -> do
@@ -47,7 +47,7 @@ startServer exe rootPath = do
     liftEff $ do
       log $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
-    r newPort <$> S.startServer exe newPort (Just rootPath)
+    r newPort <$> S.startServer'' pipe exe (defaultServerArgs { port = Just newPort, source = glob }) (Just rootPath)
     where
       r newPort (S.Started cp) = Started newPort cp
       r _ (S.Closed) = Closed
