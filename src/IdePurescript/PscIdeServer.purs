@@ -12,7 +12,7 @@ import Control.Monad.Eff.Random (RANDOM)
 import Data.Either (either)
 import Data.Maybe (Maybe(Nothing, Just))
 import IdePurescript.PscIde (cwd) as PscIde
-import Node.ChildProcess (pipe, CHILD_PROCESS, ChildProcess)
+import Node.ChildProcess (CHILD_PROCESS, ChildProcess)
 import Node.FS (FS)
 import PscIde (NET)
 import PscIde.Server (defaultServerArgs, pickFreshPort, savePort, getSavedPort)
@@ -47,7 +47,7 @@ startServer exe rootPath glob = do
     liftEff $ do
       log $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
-    r newPort <$> S.startServer'' pipe exe (defaultServerArgs { port = Just newPort, source = glob }) (Just rootPath)
+    r newPort <$> S.startServer (defaultServerArgs { exe = exe, cwd = Just rootPath, port = Just newPort, source = glob })
     where
       r newPort (S.Started cp) = Started newPort cp
       r _ (S.Closed) = Closed

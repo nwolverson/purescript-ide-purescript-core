@@ -13,11 +13,11 @@ import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Decode.Combinators ((.?))
 import Data.Array ((:), null, head)
 import Data.Either (Either(Right, Left))
-import Data.Maybe (maybe, Maybe(Nothing, Just))
+import Data.Maybe (maybe, Maybe(..))
 import Data.Nullable (toNullable, Nullable)
 import Data.String.Regex (noFlags, regex)
 import IdePurescript.Regex (replace')
-import PscIde.Command (TypePosition(TypePosition))
+import PscIde.Command (TypePosition)
 
 eitherToErr :: forall a eff. Aff (net :: P.NET | eff) (Either String a) -> (Aff (net :: P.NET | eff) a)
 eitherToErr c = do
