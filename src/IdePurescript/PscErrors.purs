@@ -17,7 +17,7 @@ type ModuleName = String
 type Filename = String
 type Lines = Array String
 
-newtype RebuildResult = RebuildResult (Array PscError)
+data RebuildResult = RebuildResult (Array PscError) | RebuildError String
 
 type PscResult =
   { warnings :: Array PscError
@@ -47,7 +47,8 @@ type Position =
   }
 
 instance decodeRebuildResult :: DecodeJson RebuildResult where
-  decodeJson json = RebuildResult <$> (decodeJson json <|> (singleton <$> decodeJson json))
+  decodeJson json = (RebuildResult <$> (decodeJson json <|> (singleton <$> decodeJson json)))
+    <|> (RebuildError <$> decodeJson json)
 
 instance decodeJsonPscError :: DecodeJson PscError where
   decodeJson json = decodeJson json >>= parsePscError

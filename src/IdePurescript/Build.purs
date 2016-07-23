@@ -10,15 +10,17 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION, error, catchException)
 import Control.Monad.Eff.Ref (readRef, REF, modifyRef, newRef)
+import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
 import Control.Monad.Error.Class (throwError)
+import Data.Array (singleton)
+import Data.Bifunctor (bimap)
 import Data.Either (either, Either(..))
 import Data.Foldable (find)
 import Data.Maybe (Maybe(..))
 import Data.String (split, indexOf)
-import IdePurescript.PscErrors (RebuildResult(RebuildResult), PscResult, parsePscOutput)
+import IdePurescript.PscErrors (PscError(PscError), RebuildResult(RebuildError, RebuildResult), PscResult, parsePscOutput)
 import Node.Encoding (Encoding(UTF8))
 import PscIde (NET)
-import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
 
 type BuildOptions =
   { command :: Command
@@ -58,7 +60,6 @@ build { command: Command cmd args, directory } = makeAff $ \err succ -> do
         Nothing -> err $ error "Didn't find JSON output"
     _ -> err $ error "Process exited abnormally")
 
-
 rebuild :: forall eff. Int -> String -> Aff (net :: NET | eff) BuildResult
 rebuild port file = do
   res <- rebuild' port file
@@ -67,10 +68,24 @@ rebuild port file = do
     (pure <<< onResult)
     res
   where
+  wrapError :: RebuildResult -> Array PscError
+  wrapError (RebuildError s) = singleton $ PscError
+    { moduleName: Nothing
+    , errorCode: "RebuildStringError"
+    , message: s
+    , filename: Just file
+    , position: Nothing
+    , errorLink: ""
+    , suggestion: Nothing
+    }
+  wrapError (RebuildResult errs) = errs
+
   onResult :: Either RebuildResult RebuildResult -> BuildResult
   onResult =
-    either (\(RebuildResult errors)   -> { errors: { errors, warnings: [] }, success: false })
-           (\(RebuildResult warnings) -> { errors: { errors: [], warnings }, success: true  })
+    either (\errors -> { errors: { errors, warnings: [] }, success: false })
+           (\warnings -> { errors: { errors: [], warnings }, success: true  })
+    <<<
+    bimap wrapError wrapError
 
   rebuild' :: Int -> String -> P.CmdR RebuildResult RebuildResult
   rebuild' port file = P.sendCommandR port (PC.RebuildCmd file)
