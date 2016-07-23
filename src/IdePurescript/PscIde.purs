@@ -1,4 +1,4 @@
-module IdePurescript.PscIde (getCompletion, cwd, loadDeps, getType, eitherToErr
+module IdePurescript.PscIde (getCompletion, getCompletion', cwd, loadDeps, getType, eitherToErr
   , getPursuitModuleCompletion, getPursuitCompletion, getAvailableModules, getLoadedModules, SearchResult, ModuleSearchResult
   , getTypeInfo) where
 
@@ -100,8 +100,13 @@ type CompletionResult = {type :: String, identifier :: String, module :: String}
 
 getCompletion :: forall eff. Int -> String -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Array CompletionResult)
-getCompletion port prefix currentModule modulePrefix moduleCompletion unqualModules getQualifiedModule =
-  conv <$> (eitherToErr $ P.complete port (C.PrefixFilter prefix : moduleFilters mods) Nothing currentModule)
+getCompletion port prefix =
+  getCompletion' Nothing [C.PrefixFilter prefix] port
+
+getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
+  -> Aff (net :: P.NET | eff) (Array CompletionResult)
+getCompletion' matcher mainFilter port currentModule modulePrefix moduleCompletion unqualModules getQualifiedModule =
+  conv <$> (eitherToErr $ P.complete port (mainFilter <> moduleFilters mods) matcher currentModule)
   where
   mods = if moduleCompletion then [] else moduleFilterModules modulePrefix unqualModules getQualifiedModule
   conv = map convCompletion
