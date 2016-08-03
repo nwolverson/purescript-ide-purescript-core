@@ -1,9 +1,11 @@
 module IdePurescript.Tokens where
 
-import Prelude
+import Prelude (const, (<>), (-), (+))
+
 import Data.Maybe (Maybe(..))
-import Data.Either (either)
-import Data.String (length, drop, take)
+import Data.Either
+import Data.String (length, take, drop)
+
 import Data.String.Regex (match, noFlags, regex)
 
 type WordRange = { left :: Int, right :: Int }

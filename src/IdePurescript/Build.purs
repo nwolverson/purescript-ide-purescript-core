@@ -35,6 +35,7 @@ type BuildResult =
   , success :: Boolean
   }
 
+
 addExceptionEffect :: forall eff a. Eff eff a -> Eff (err :: EXCEPTION | eff) a
 addExceptionEffect = unsafeInterleaveEff
 
@@ -62,6 +63,7 @@ build { command: Command cmd args, directory } = makeAff $ \err succ -> do
 
 rebuild :: forall eff. Int -> String -> Aff (net :: NET | eff) BuildResult
 rebuild port file = do
+
   res <- rebuild' port file
   either
     (throwError <<< error)
@@ -82,7 +84,7 @@ rebuild port file = do
 
   onResult :: Either RebuildResult RebuildResult -> BuildResult
   onResult =
-    either (\errors -> { errors: { errors, warnings: [] }, success: false })
+    either (\errors -> { errors: { errors, warnings: [] }, success: true })
            (\warnings -> { errors: { errors: [], warnings }, success: true  })
     <<<
     bimap wrapError wrapError
