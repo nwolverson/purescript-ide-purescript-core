@@ -48,7 +48,7 @@ type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOL
 type QuitCallback eff = (Eff (err :: EXCEPTION, net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
 
 data ErrorLevel = Success | Info | Warning | Error
-type Notify eff = ErrorLevel -> String -> Eff (ServerEff eff) Unit
+type Notify eff = ErrorLevel -> String -> Eff eff Unit
 
 data Version = Version Int Int Int
 
@@ -74,7 +74,7 @@ startServer' :: forall eff eff'.
   String
   -> String
   -> Array String
-  -> Notify eff
+  -> Notify (ServerEff eff)
   -> Aff (ServerEff eff) { quit :: QuitCallback eff', port :: Maybe Int }
 startServer' path server glob cb = do
   serverBins <- findBins server
