@@ -22,17 +22,18 @@ import Control.Monad.Eff.Random (RANDOM)
 import Data.Array (length, head)
 import Data.Either (either)
 import Data.Int (fromNumber)
-import Data.Maybe (fromMaybe, Maybe(Nothing, Just))
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 import Data.String (trim, split)
 import Data.Traversable (traverse, traverse_)
 import Global (readInt)
+import IdePurescript.Exec (getPathVar, findBins)
 import IdePurescript.PscIde (cwd) as PscIde
 import Node.Buffer (BUFFER)
 import Node.ChildProcess (CHILD_PROCESS, ChildProcess)
 import Node.FS (FS)
-import Node.Process (PROCESS, lookupEnv)
+import Node.Process (PROCESS)
 import PscIde (NET)
-import PscIde.Server (Executable(Executable), findBins, defaultServerArgs, pickFreshPort, savePort, getSavedPort)
+import PscIde.Server (Executable(Executable), getSavedPort, defaultServerArgs, savePort, pickFreshPort)
 
 type Port = Int
 
@@ -73,16 +74,17 @@ instance showVersion :: Show Version where
 startServer' :: forall eff eff'.
   String
   -> String
+  -> Boolean
   -> Array String
   -> Notify (ServerEff eff)
   -> Aff (ServerEff eff) { quit :: QuitCallback eff', port :: Maybe Int }
-startServer' path server glob cb = do
-  serverBins <- findBins server
+startServer' path server addNpmBin glob cb = do
+  pathVar <- liftEff'' $ getPathVar addNpmBin path
+  serverBins <- findBins pathVar server
   case head serverBins of
     Nothing -> do
-      processPath <- liftEff'' $ lookupEnv "PATH"
-      liftEff''  $ cb Info $ "Couldn't find psc-ide-server, check PATH. Looked for: "
-        <> server <> " in PATH: " <> fromMaybe "" processPath
+      liftEff'' $ cb Info $ "Couldn't find psc-ide-server, check PATH. Looked for: "
+        <> server <> " in PATH: " <> either id id pathVar
       pure { quit: pure unit, port: Nothing }
     Just (Executable bin version) -> do
       liftEff $ log $ "Resolved psc-ide-server paths (1st is used):"
