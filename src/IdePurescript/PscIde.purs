@@ -11,7 +11,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Error.Class (throwError)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Decode.Combinators ((.?))
-import Data.Array ((:), null, head)
+import Data.Array (head)
 import Data.Either (Either(Right, Left))
 import Data.Maybe (maybe, Maybe(..))
 import Data.Nullable (toNullable, Nullable)
@@ -59,19 +59,8 @@ moduleFilterModules :: String -> Array String -> (String -> Array String) -> Arr
 moduleFilterModules modulePrefix unqualModules getQualifiedModule =
   if S.null modulePrefix then
     unqualModules
-  else if S.contains "." modulePrefix then
-    [ modulePrefix ]
   else
-    let mods = getQualifiedModule modulePrefix in
-    if null mods then
-      [ modulePrefix ]
-    else
-      mods
-
-moduleFilters :: Array String -> Array C.Filter
-moduleFilters [] = []
-moduleFilters modules = [ C.ModuleFilter modules ]
-
+    getQualifiedModule modulePrefix
 
 abbrevType :: String -> String
 abbrevType = replace' r "$1"
@@ -82,10 +71,9 @@ type TypeResult = {type :: String, identifier :: String, module :: String, posit
 getTypeInfo :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Maybe C.TypeInfo)
 getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule =
-  result conv $ P.type' port text (moduleFilters mods) currentModule
+  result head $ P.type' port text moduleFilters currentModule
   where
-    mods = moduleFilterModules modulePrefix unqualModules getQualifiedModule
-    conv = head
+    moduleFilters = [ C.ModuleFilter $ moduleFilterModules modulePrefix unqualModules getQualifiedModule ]
 
 getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) String
@@ -104,9 +92,9 @@ getCompletion port prefix =
 getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
 getCompletion' matcher mainFilter port currentModule modulePrefix moduleCompletion unqualModules getQualifiedModule =
-  eitherToErr $ P.complete port (mainFilter <> moduleFilters mods) matcher currentModule
+  eitherToErr $ P.complete port (mainFilter <> moduleFilters) matcher currentModule
   where
-  mods = if moduleCompletion then [] else moduleFilterModules modulePrefix unqualModules getQualifiedModule
+  moduleFilters = if moduleCompletion then [] else [ C.ModuleFilter $ moduleFilterModules modulePrefix unqualModules getQualifiedModule ]
 
 loadDeps :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) String
