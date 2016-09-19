@@ -80,39 +80,33 @@ abbrevType = replace' r "$1"
 type TypeResult = {type :: String, identifier :: String, module :: String, position :: Maybe TypePosition}
 
 getTypeInfo :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
-  -> Aff (net :: P.NET | eff) (Maybe TypeResult)
+  -> Aff (net :: P.NET | eff) (Maybe C.TypeInfo)
 getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule =
   result conv $ P.type' port text (moduleFilters mods) currentModule
   where
     mods = moduleFilterModules modulePrefix unqualModules getQualifiedModule
-    conv r = head $ map convCompletion r
-
-    convCompletion :: C.TypeInfo -> TypeResult
-    convCompletion (C.TypeInfo { type', identifier, module', definedAt }) =
-      { type: type', identifier, module: module', position: definedAt }
+    conv = head
 
 getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) String
 getType port text currentModule modulePrefix unqualModules getQualifiedModule =
-  (maybe "" _.type) <$> getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule
+  maybe "" getType' <$> getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule
+  where
+  getType' (C.TypeInfo { type' }) = type'
 
 type CompletionResult = {type :: String, identifier :: String, module :: String}
 
 getCompletion :: forall eff. Int -> String -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
-  -> Aff (net :: P.NET | eff) (Array CompletionResult)
+  -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
 getCompletion port prefix =
   getCompletion' Nothing [C.PrefixFilter prefix] port
 
 getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
-  -> Aff (net :: P.NET | eff) (Array CompletionResult)
+  -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
 getCompletion' matcher mainFilter port currentModule modulePrefix moduleCompletion unqualModules getQualifiedModule =
-  conv <$> (eitherToErr $ P.complete port (mainFilter <> moduleFilters mods) matcher currentModule)
+  eitherToErr $ P.complete port (mainFilter <> moduleFilters mods) matcher currentModule
   where
   mods = if moduleCompletion then [] else moduleFilterModules modulePrefix unqualModules getQualifiedModule
-  conv = map convCompletion
-
-  convCompletion :: C.Completion -> CompletionResult
-  convCompletion (C.Completion { type', identifier, module' }) = { type: type', identifier, module: module' }
 
 loadDeps :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) String

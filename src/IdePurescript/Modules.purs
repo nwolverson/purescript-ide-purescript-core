@@ -104,7 +104,7 @@ findImportInsertPos text =
 
 foreign import tmpDir :: forall eff. Eff (fs :: FS | eff) String
 
-data ImportResult = UpdatedImports String | AmbiguousImport (Array C.Completion) | FailedImport
+data ImportResult = UpdatedImports String | AmbiguousImport (Array C.TypeInfo) | FailedImport
 
 withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs :: FS | eff) (Either String C.ImportResult))
   -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
