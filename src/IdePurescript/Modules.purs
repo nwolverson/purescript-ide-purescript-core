@@ -23,23 +23,35 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Array ((:), findLastIndex, filter, singleton, concatMap)
 import Data.Either (either, Either(..))
-import Data.Foldable (notElem, elem)
+import Data.Foldable (all, notElem, elem)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.String (split)
+import IdePurescript.Regex (replace', match', test')
 import Node.Encoding (Encoding(..))
 import Node.FS (FS)
 import Node.Path (sep)
+import PscIde.Command (ImportType(..))
 
-import IdePurescript.Regex (replace', match', test')
+newtype Module = Module
+  { moduleName :: String
+  , importType :: C.ImportType
+  , qualifier  :: Maybe String
+  }
 
-data Module = Implicit String | Explicit String (Array String) | Qualified String String
+instance moduleEq :: Eq Module where
+  eq (Module m1) (Module m2) =
+    m1.moduleName == m2.moduleName &&
+    m1.qualifier == m2.qualifier &&
+    m1.importType `eqImportType` m2.importType
 
-derive instance moduleEq :: Eq Module
+eqImportType :: C.ImportType -> C.ImportType -> Boolean
+eqImportType Implicit Implicit = true
+eqImportType (Explicit idents) (Explicit idents') = idents == idents'
+eqImportType (Hiding idents) (Hiding idents') = idents == idents'
+eqImportType _ _ = false
 
 getModuleName :: Module -> String
-getModuleName (Qualified _ m) = m
-getModuleName (Implicit m) = m
-getModuleName (Explicit m _) = m
+getModuleName (Module { moduleName }) = moduleName
 
 type State =
   { main :: Maybe String
@@ -65,31 +77,31 @@ getModulesForFile port file fullText = do
       identifiers = concatMap idents modules
   pure { main, modules, identifiers }
   where
-  mod (C.Import { moduleName, qualifier: Nothing, importType: C.Explicit identifiers }) =
-    Explicit moduleName identifiers
-  mod (C.Import { moduleName, qualifier: Nothing }) = Implicit moduleName
-  mod (C.Import { moduleName, qualifier: Just qual }) = Qualified qual moduleName
-
-  idents (Explicit _ x) = x
+  mod (C.Import imp) = Module imp
+  idents (Module { importType: Explicit ids }) = ids
   idents _ = []
+
+mkImplicit :: String -> Module
+mkImplicit m = Module { qualifier: Nothing, importType: Implicit, moduleName: m }
 
 getUnqualActiveModules :: State -> Maybe String -> Array String
 getUnqualActiveModules {modules, main} ident =
-  map getModuleName $ maybe [] (singleton <<< Implicit) main <> filter include modules
+  map getModuleName $ maybe [] (singleton <<< mkImplicit) main <> filter include modules
   where
-  include (Qualified _ _) = false
-  include (Explicit _ idents) = maybe false (_ `elem` idents) ident
-  include (Implicit _) = true
+  include (Module { qualifier: Just _ }) = false
+  include (Module { importType: Explicit idents }) = maybe false (_ `elem` idents) ident
+  include (Module { importType: Implicit }) = true
+  include (Module { importType: Hiding idents }) =  maybe true (_ `notElem` idents) ident
 
 getAllActiveModules  :: State -> Array String
 getAllActiveModules {modules, main} =
-  map getModuleName $ maybe [] (singleton <<< Implicit) main <> modules
+  map getModuleName $ maybe [] (singleton <<< mkImplicit) main <> modules
 
 getQualModule :: String -> State -> Array String
 getQualModule qualifier {modules} =
   map getModuleName $ filter (qual qualifier) modules
   where
-  qual q (Qualified q' _) = q == q'
+  qual q (Module { qualifier: Just q' }) = q == q'
   qual _ _ = false
 
 initialModulesState :: State
@@ -134,7 +146,7 @@ addModuleImport state port fileName text moduleName =
   where
   addImport tmpFile = P.implicitImport port tmpFile (Just tmpFile) [] moduleName
   shouldAdd =
-    state.main /= Just moduleName && (Implicit moduleName `notElem` state.modules)
+    state.main /= Just moduleName && (mkImplicit moduleName `notElem` state.modules)
 
 addExplicitImport :: forall eff. State -> Int -> String -> String -> (Maybe String) -> String
   -> Aff (net :: P.NET, fs :: FS | eff) { state :: State, result :: ImportResult }
@@ -158,4 +170,10 @@ addExplicitImport state port fileName text moduleName identifier =
 
     shouldAdd = not isThisModule
       && not (identifier `elem` state.identifiers)
-      && maybe true (\mn -> not $ Implicit mn `elem` state.modules) moduleName
+      && maybe true (\mn -> all (shouldAddMatch mn) state.modules) moduleName
+
+    shouldAddMatch mn (Module { moduleName: moduleName', qualifier: Nothing, importType: Implicit })
+      | moduleName' == mn = false
+    shouldAddMatch mn (Module { moduleName: moduleName', qualifier: Nothing, importType: Hiding idents })
+      | moduleName' == mn = identifier `elem` idents
+    shouldAddMatch _ _ = true
