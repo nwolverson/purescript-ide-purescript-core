@@ -100,14 +100,14 @@ loadDeps :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) String
 loadDeps port main = result runMsg $ P.load port [] [main]
 
-type SearchResult = { module :: String, package :: String, type:: String, identifier :: String }
+type SearchResult = { module :: String, package :: String, type:: Maybe String, identifier :: String, text :: String }
 
 getPursuitCompletion :: forall eff. Int -> String -> Aff (net :: P.NET | eff) (Array SearchResult)
 getPursuitCompletion port str = result (map convPursuitCompletion) $ P.pursuitCompletion port str
 
 convPursuitCompletion :: C.PursuitCompletion -> SearchResult
-convPursuitCompletion (C.PursuitCompletion { identifier, type', module', package })
-  = { identifier, package, type: type', module: module' }
+convPursuitCompletion (C.PursuitCompletion { identifier, type', module', package, text })
+  = { identifier, package, type: type', module: module', text }
 
 data ModuleCompletion = ModuleCompletion {
   module' :: String,
