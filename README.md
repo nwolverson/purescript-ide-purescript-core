@@ -1,5 +1,7 @@
 # purescript-ide-purescript-core
 
+[![Build Status](https://travis-ci.org/nwolverson/purescript-ide-purescript-core.svg?branch=master)](https://travis-ci.org/nwolverson/purescript-ide-purescript-core)
+
 Common PureScript code for the core implementation of PureScript editor plugins for JavaScript-based editors,
 i.e. [atom-ide-purescript](https://github.com/nwolverson/atom-ide-purescript) and 
 [vscode-ide-purescript](https://github.com/nwolverson/vscode-ide-purescript).
