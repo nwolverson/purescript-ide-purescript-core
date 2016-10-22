@@ -23,7 +23,7 @@ import Data.Array (length, head)
 import Data.Either (either)
 import Data.Int (fromNumber)
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
-import Data.String (trim, split)
+import Data.String (Pattern(Pattern), trim, split)
 import Data.Traversable (traverse, traverse_)
 import Global (readInt)
 import IdePurescript.Exec (getPathVar, findBins)
@@ -55,7 +55,7 @@ data Version = Version Int Int Int
 
 parseVersion :: String -> Maybe Version
 parseVersion s =
-  case traverse fromNumber $ readInt 10 <$> split "." s of
+  case traverse fromNumber $ readInt 10 <$> split (Pattern ".") s of
     Just [a, b, c] -> Just $ Version a b c
     _ -> Nothing
 

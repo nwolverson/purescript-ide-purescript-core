@@ -15,7 +15,8 @@ import Data.Array (head)
 import Data.Either (Either(Right, Left))
 import Data.Maybe (maybe, Maybe(..))
 import Data.Nullable (toNullable, Nullable)
-import Data.String.Regex (noFlags, regex)
+import Data.String.Regex (regex)
+import Data.String.Regex.Flags (global)
 import IdePurescript.Regex (replace')
 import PscIde.Command (TypePosition)
 
@@ -64,7 +65,7 @@ moduleFilterModules modulePrefix unqualModules getQualifiedModule =
 
 abbrevType :: String -> String
 abbrevType = replace' r "$1"
-  where r = regex """(?:\w+\.)+(\w+)""" $ noFlags { global = true }
+  where r = regex """(?:\w+\.)+(\w+)""" $ global
 
 type TypeResult = {type :: String, identifier :: String, module :: String, position :: Maybe TypePosition}
 

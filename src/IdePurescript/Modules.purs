@@ -14,18 +14,19 @@ module IdePurescript.Modules (
   ) where
 
 import Prelude
-import Data.String.Regex as R
 import Node.FS.Aff as FS
 import PscIde as P
 import PscIde.Command as C
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Data.Array ((:), findLastIndex, filter, singleton, concatMap)
+import Data.Array (findLastIndex, filter, singleton, concatMap, (:))
 import Data.Either (either, Either(..))
 import Data.Foldable (all, notElem, elem)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
-import Data.String (split)
+import Data.String (Pattern(Pattern), split)
+import Data.String.Regex (regex) as R
+import Data.String.Regex.Flags (global, noFlags, multiline) as R
 import IdePurescript.Regex (replace', match', test')
 import Node.Encoding (Encoding(..))
 import Node.FS (FS)
@@ -67,7 +68,7 @@ getMainModule text =
     Just [_, Just m] -> Just m
     _ -> Nothing
   where
-  regex = R.regex """module\s+([\w.]+)""" $ R.noFlags { multiline = true }
+  regex = R.regex """module\s+([\w.]+)""" $ R.multiline
 
 getModulesForFile :: forall eff. Int -> Path -> String -> Aff (net :: P.NET | eff) State
 getModulesForFile port file fullText = do
@@ -110,7 +111,7 @@ initialModulesState =  { main: Nothing, modules: [], identifiers: [] }
 findImportInsertPos :: String -> Int
 findImportInsertPos text =
   let regex = R.regex """^(module|import) [A-Z][^(]*($|\([^()]*\))""" R.noFlags
-      lines = split "\n" text
+      lines = split (Pattern "\n") text
       res = fromMaybe 0 $ findLastIndex (test' regex) lines
   in res+1
 
@@ -122,7 +123,7 @@ withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs
   -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
 withTempFile fileName text action = do
   dir <- liftEff tmpDir
-  let name = replace' (R.regex "[\\/\\\\]" (R.noFlags { global = true })) "-" fileName
+  let name = replace' (R.regex "[\\/\\\\]" R.global) "-" fileName
       tmpFile = dir <> sep <> "ide-purescript." <> name <> ".purs"
   FS.writeTextFile UTF8 tmpFile text
   res <- action tmpFile

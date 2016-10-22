@@ -2,7 +2,6 @@ module IdePurescript.PscErrors where
 
 import Prelude
 import Control.Alt ((<|>))
-import Control.Bind ((<=<))
 import Data.Argonaut (decodeJson, class DecodeJson)
 import Data.Argonaut.Decode.Combinators ((.?))
 import Data.Argonaut.Core (JObject, toObject)

@@ -1,6 +1,7 @@
 module IdePurescript.Build where
 
 import Prelude
+import Data.List as List
 import Node.ChildProcess as CP
 import Node.Stream as S
 import PscIde as P
@@ -11,18 +12,17 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION, error, catchException)
 import Control.Monad.Eff.Ref (readRef, REF, modifyRef, newRef)
-import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
+import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.Error.Class (throwError)
 import Data.Array (uncons, singleton)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(..))
 import Data.Foldable (find)
 import Data.Maybe (maybe, Maybe(..))
-import Data.StrMap (fromList)
-import Data.String (split, indexOf)
+import Data.StrMap (fromFoldable)
+import Data.String (Pattern(Pattern), split, indexOf)
 import Data.Traversable (traverse_)
 import Data.Tuple (Tuple(Tuple))
-import Data.List as List
 import IdePurescript.Exec (findBins, getPathVar)
 import IdePurescript.PscErrors (PscError(PscError), RebuildResult(RebuildError, RebuildResult), PscResult, parsePscOutput)
 import Node.Buffer (BUFFER)
@@ -48,7 +48,7 @@ type BuildResult =
   }
 
 addExceptionEffect :: forall eff a. Eff eff a -> Eff (err :: EXCEPTION | eff) a
-addExceptionEffect = unsafeInterleaveEff
+addExceptionEffect = unsafeCoerceEff
 
 spawn :: forall eff. BuildOptions
   -> Aff (cp :: CHILD_PROCESS, buffer :: BUFFER, fs :: FS, process :: PROCESS | eff)
@@ -58,7 +58,7 @@ spawn { command: Command cmd args, directory, useNpmDir } = do
   cmdBins <- findBins pathVar cmd
   cp <- liftEff $ case uncons cmdBins of
     Just { head: Executable cmdBin _ } -> Just <$>
-      CP.spawn cmdBin args (CP.defaultSpawnOptions { cwd = Just directory, env = Just (fromList $ List.singleton $ Tuple "PATH" $ either id id pathVar) })
+      CP.spawn cmdBin args (CP.defaultSpawnOptions { cwd = Just directory, env = Just (fromFoldable $ List.singleton $ Tuple "PATH" $ either id id pathVar) })
     _ -> pure Nothing
   pure { cmdBins, cp }
 
@@ -84,8 +84,8 @@ build buildOptions@{ command: Command cmd args, directory, useNpmDir } = do
         CP.onClose cp (\exit -> case exit of
           CP.Normally n | n == 0 || n == 1 -> do
             pscOutput <- readRef result
-            let lines = split "\n" pscOutput
-                json = find (\s -> indexOf "{\"" s == Just 0) lines
+            let lines = split (Pattern "\n") pscOutput
+                json = find (\s -> indexOf (Pattern "{\"") s == Just 0) lines
             case parsePscOutput <$> json of
               Just (Left e) -> err $ error e
               Just (Right r) -> succ { errors: r, success: n == 0 }
