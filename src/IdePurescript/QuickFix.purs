@@ -19,4 +19,6 @@ isUnknownToken code = case code of
   "UnknownType" -> true
   "UnknownDataConstructor" -> true
   "UnknownTypeConstructor" -> true
+    -- In later compiler versions UnknownName covers all of the above
+  "UnknownName" -> true
   _ -> false
