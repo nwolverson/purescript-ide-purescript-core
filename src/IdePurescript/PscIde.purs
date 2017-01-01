@@ -4,7 +4,6 @@ module IdePurescript.PscIde (getCompletion, getCompletion', cwd, loadDeps, getTy
 
 import Prelude
 import Control.Monad.Eff.Exception as Ex
-import Data.String as S
 import PscIde as P
 import PscIde.Command as C
 import Control.Monad.Aff (Aff)
@@ -56,27 +55,20 @@ getLoadedModules = result conv <<< P.listLoadedModules
   where
   conv (C.ModuleList modules) = modules
 
-moduleFilterModules :: String -> Array String -> (String -> Array String) -> Array String
-moduleFilterModules modulePrefix unqualModules getQualifiedModule =
-  if S.null modulePrefix then
-    unqualModules
-  else
-    getQualifiedModule modulePrefix
-
 abbrevType :: String -> String
 abbrevType = replace' r "$1"
   where r = regex """(?:\w+\.)+(\w+)""" $ global
 
 type TypeResult = {type :: String, identifier :: String, module :: String, position :: Maybe TypePosition}
 
-getTypeInfo :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
+getTypeInfo :: forall eff. Int -> String -> Maybe String -> Maybe String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Maybe C.TypeInfo)
 getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule =
   result head $ P.type' port text moduleFilters currentModule
   where
-    moduleFilters = [ C.ModuleFilter $ moduleFilterModules modulePrefix unqualModules getQualifiedModule ]
+    moduleFilters = [ C.ModuleFilter $ maybe unqualModules getQualifiedModule modulePrefix ]
 
-getType :: forall eff. Int -> String -> Maybe String -> String -> Array String -> (String -> Array String)
+getType :: forall eff. Int -> String -> Maybe String -> Maybe String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) String
 getType port text currentModule modulePrefix unqualModules getQualifiedModule =
   maybe "" getType' <$> getTypeInfo port text currentModule modulePrefix unqualModules getQualifiedModule
@@ -85,17 +77,17 @@ getType port text currentModule modulePrefix unqualModules getQualifiedModule =
 
 type CompletionResult = {type :: String, identifier :: String, module :: String}
 
-getCompletion :: forall eff. Int -> String -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
+getCompletion :: forall eff. Int -> String -> Maybe String -> Maybe String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
 getCompletion port prefix =
   getCompletion' Nothing [C.PrefixFilter prefix] port
 
-getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> String -> Boolean -> Array String -> (String -> Array String)
+getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> Maybe String -> Array String -> (String -> Array String)
   -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
-getCompletion' matcher mainFilter port currentModule modulePrefix moduleCompletion unqualModules getQualifiedModule =
+getCompletion' matcher mainFilter port currentModule modulePrefix unqualModules getQualifiedModule =
   eitherToErr $ P.complete port (mainFilter <> moduleFilters) matcher currentModule
   where
-  moduleFilters = if moduleCompletion then [] else [ C.ModuleFilter $ moduleFilterModules modulePrefix unqualModules getQualifiedModule ]
+  moduleFilters = [ C.ModuleFilter $ maybe unqualModules getQualifiedModule modulePrefix ]
 
 loadDeps :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) String
