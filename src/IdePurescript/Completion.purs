@@ -10,6 +10,7 @@ import Data.String.Regex (Regex, regex)
 import Data.String.Regex.Flags (noFlags)
 import IdePurescript.PscIde (eitherToErr, getCompletion)
 import IdePurescript.Regex (match', test')
+import IdePurescript.Tokens (identPart, modulePart, moduleRegex)
 import PscIde (NET, listAvailableModules)
 import PscIde.Command (ModuleList(..), TypeInfo(..))
 
@@ -20,15 +21,6 @@ type ModuleInfo =
   }
 
 data SuggestionType = Module | Type | Function | Value
-
-modulePart :: String
-modulePart = """((?:[A-Z][A-Za-z0-9]*\.)*(?:[A-Z][A-Za-z0-9]*))"""
-
-identPart :: String
-identPart = "([a-zA-Z_][a-zA-Z0-9_']*)"
-
-moduleRegex :: Either String Regex
-moduleRegex = regex ("(?:^|[^A-Za-z_.])(?:" <> modulePart <> """\.)?""" <> identPart <> "?$") noFlags
 
 explicitImportRegex :: Either String Regex
 explicitImportRegex = regex ("""^import\s+""" <> modulePart <> """\s+\([^)]*?""" <> identPart <> "$") noFlags

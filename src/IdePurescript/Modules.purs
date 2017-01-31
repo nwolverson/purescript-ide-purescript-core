@@ -90,7 +90,7 @@ getUnqualActiveModules {modules, main} ident =
   map getModuleName $ maybe [] (singleton <<< mkImplicit) main <> filter include modules
   where
   include (Module { qualifier: Just _ }) = false
-  include (Module { importType: Explicit idents }) = maybe false (_ `elem` idents) ident
+  include (Module { importType: Explicit idents }) = maybe false (\x -> x `elem` idents || ("(" <> x <> ")") `elem` idents) ident
   include (Module { importType: Implicit }) = true
   include (Module { importType: Hiding idents }) =  maybe true (_ `notElem` idents) ident
 
