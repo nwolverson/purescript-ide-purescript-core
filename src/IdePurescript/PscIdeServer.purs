@@ -29,9 +29,11 @@ import Global (readInt)
 import IdePurescript.Exec (getPathVar, findBins)
 import IdePurescript.PscIde (cwd) as PscIde
 import Node.Buffer (BUFFER)
-import Node.ChildProcess (CHILD_PROCESS, ChildProcess)
+import Node.ChildProcess (CHILD_PROCESS, ChildProcess, stderr, stdout)
+import Node.Encoding (Encoding(..))
 import Node.FS (FS)
 import Node.Process (PROCESS)
+import Node.Stream (onDataString)
 import PscIde (NET)
 import PscIde.Server (Executable(Executable), getSavedPort, defaultServerArgs, savePort, pickFreshPort)
 
@@ -77,13 +79,14 @@ startServer' :: forall eff eff'.
   -> Boolean
   -> Array String
   -> Notify (ServerEff eff)
+  -> Notify (ServerEff eff)
   -> Aff (ServerEff eff) { quit :: QuitCallback eff', port :: Maybe Int }
-startServer' path server addNpmBin glob cb = do
-  pathVar <- liftEff'' $ getPathVar addNpmBin path
+startServer' path server addNpmBin glob cb logCb = do
+  pathVar <- liftEff $ getPathVar addNpmBin path
   serverBins <- findBins pathVar server
   case head serverBins of
     Nothing -> do
-      liftEff'' $ cb Info $ "Couldn't find psc-ide-server, check PATH. Looked for: "
+      liftEff $ cb Info $ "Couldn't find psc-ide-server, check PATH. Looked for: "
         <> server <> " in PATH: " <> either id id pathVar
       pure { quit: pure unit, port: Nothing }
     Just (Executable bin version) -> do
@@ -102,30 +105,33 @@ startServer' path server addNpmBin glob cb = do
           pure noRes
         Started usedPort cp -> do
           cb Success $ "Started psc-ide-server (port " <> show usedPort <> ")"
+          wireOutput cp logCb
           pure
             { quit: void $ runAff (\_ -> pure unit) (\_ -> pure unit) $ stopServer usedPort path cp
             , port: Just usedPort
             }
         Closed -> noRes <$ cb Info "psc-ide-server exited with success code"
         StartError err -> noRes <$ (cb Error $ "Could not start psc-ide-server process. Check the configured port number is valid.\n" <> err)
-
-liftEff'' :: forall e a. Eff (ServerEff e) a -> Aff (ServerEff e) a
-liftEff'' = liftEff
+  where
+    wireOutput :: ChildProcess -> Notify (ServerEff eff) -> Eff (ServerEff eff) Unit
+    wireOutput cp log = do
+      onDataString (stderr cp) UTF8 (log Warning)
+      onDataString (stdout cp) UTF8 (log Info)
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
 startServer :: forall eff. String -> String -> Array String -> Aff (ServerEff eff) ServerStartResult
 startServer exe rootPath glob = do
-  port <- liftEff'' $ getSavedPort rootPath
+  port <- liftEff $ getSavedPort rootPath
   case port of
     Just p -> do
       workingDir <- attempt $ PscIde.cwd p
-      liftEff'' $ log $ "Found existing port from file: " <> show p <> (either (const "") (", cwd: " <> _) workingDir)
+      liftEff $ log $ "Found existing port from file: " <> show p <> (either (const "") (", cwd: " <> _) workingDir)
       either (const launchServer) (gotPath p) workingDir
     Nothing -> launchServer
 
   where
   launchServer = do
-    newPort <- liftEff'' pickFreshPort
+    newPort <- liftEff pickFreshPort
     liftEff $ do
       log $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
