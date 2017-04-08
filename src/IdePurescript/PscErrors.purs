@@ -3,12 +3,13 @@ module IdePurescript.PscErrors where
 import Prelude
 import Control.Alt ((<|>))
 import Data.Argonaut (decodeJson, class DecodeJson)
-import Data.Argonaut.Decode.Combinators ((.?))
 import Data.Argonaut.Core (JObject, toObject)
+import Data.Argonaut.Decode.Combinators ((.?))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Array (singleton)
 import Data.Either (either, Either(Left))
 import Data.Maybe (Maybe(Just, Nothing), maybe)
+import Data.Newtype (class Newtype)
 import Data.Traversable (traverse)
 
 type ErrorCode = String
@@ -32,6 +33,8 @@ newtype PscError = PscError
   , errorLink :: String
   , suggestion :: Maybe PscSuggestion
   }
+
+derive instance pscErrorNewtype :: Newtype PscError _
 
 type PscSuggestion =
   { replacement :: String

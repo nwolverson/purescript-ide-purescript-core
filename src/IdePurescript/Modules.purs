@@ -24,6 +24,7 @@ import Data.Array (findLastIndex, filter, singleton, concatMap, (:))
 import Data.Either (either, Either(..))
 import Data.Foldable (all, notElem, elem)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
+import Data.Newtype (class Newtype)
 import Data.String (Pattern(Pattern), split)
 import Data.String.Regex (regex) as R
 import Data.String.Regex.Flags (global, noFlags, multiline) as R
@@ -38,6 +39,8 @@ newtype Module = Module
   , importType :: C.ImportType
   , qualifier  :: Maybe String
   }
+
+derive instance moduleNewtype :: Newtype Module _
 
 instance moduleEq :: Eq Module where
   eq (Module m1) (Module m2) =
