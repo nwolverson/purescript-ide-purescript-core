@@ -47,7 +47,7 @@ type BuildResult =
   , success :: Boolean
   }
 
-addExceptionEffect :: forall eff a. Eff eff a -> Eff (err :: EXCEPTION | eff) a
+addExceptionEffect :: forall eff a. Eff eff a -> Eff (exception :: EXCEPTION | eff) a
 addExceptionEffect = unsafeCoerceEff
 
 spawn :: forall eff. BuildOptions
@@ -76,7 +76,7 @@ build buildOptions@{ command: Command cmd args, directory, useNpmDir } = do
         CP.onError cp (err <<< CP.toStandardError)
         let stderr = CP.stderr cp
         result <- newRef ""
-        let res :: String -> Eff (BuildEff (err :: EXCEPTION | eff)) Unit
+        let res :: String -> Eff (BuildEff (exception :: EXCEPTION | eff)) Unit
             res s = do
               modifyRef result (\acc -> acc<>s)
 

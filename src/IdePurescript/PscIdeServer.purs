@@ -46,9 +46,9 @@ data ServerStartResult =
   | Closed
   | StartError String
 
-type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, err :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
+type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
 
-type QuitCallback eff = (Eff (err :: EXCEPTION, net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
+type QuitCallback eff = (Eff (exception :: EXCEPTION, net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
 
 data ErrorLevel = Success | Info | Warning | Error
 type Notify eff = ErrorLevel -> String -> Eff eff Unit
@@ -153,7 +153,7 @@ startServer exe rootPath glob usePurs = do
           pure $ WrongPath port workingDir
 
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
-stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS, err :: EXCEPTION | eff) Unit
+stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS, exception :: EXCEPTION | eff) Unit
 stopServer port rootPath cp = do
   oldPort <- liftEff $ S.getSavedPort rootPath
   liftEff $ when (oldPort == Just port) $ S.deleteSavedPort rootPath

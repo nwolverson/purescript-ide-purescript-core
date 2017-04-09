@@ -10,19 +10,19 @@
     "output"
   ],
   "dependencies": {
-    "purescript-console": "^2.0.0",
-    "purescript-maybe": "^2.0.0",
-    "purescript-either": "^2.0.0",
-    "purescript-arrays": "^3.0.0",
-    "purescript-aff": "^2.0.0",
-    "purescript-argonaut": "^2.0.0",
-    "purescript-strings": "^2.0.1",
-    "purescript-psc-ide": "https://github.com/kRITZCREEK/purescript-psc-ide.git#ab6065bb862dde718461a8c7ecf9fe8fc50ccabf",
-    "purescript-refs": "^2.0.0",
-    "purescript-nullable": "^2.0.0",
-    "purescript-node-fs": "^3.0.0",
-    "purescript-node-child-process": "^3.0.0",
-    "purescript-node-fs-aff": "^3.0.0",
-    "purescript-node-process": "^3.0.0"
+    "purescript-console": "^3.0.0",
+    "purescript-maybe": "^3.0.0",
+    "purescript-either": "^3.0.0",
+    "purescript-arrays": "^4.0.1",
+    "purescript-aff": "^3.0.0",
+    "purescript-argonaut": "^3.0.0",
+    "purescript-strings": "^3.0.0",
+    "purescript-psc-ide": "^8.0.1",
+    "purescript-refs": "^3.0.0",
+    "purescript-nullable": "^3.0.0",
+    "purescript-node-fs": "^4.0.0",
+    "purescript-node-child-process": "^4.0.0",
+    "purescript-node-fs-aff": "^4.0.0",
+    "purescript-node-process": "^4.0.0"
   }
 }
