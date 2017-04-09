@@ -39,7 +39,7 @@ getImports' :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) (Array { module :: String, qualifier :: Nullable String })
 getImports' port s = result conv $ P.listImports port s
   where
-  conv (C.ImportList imps) = conv' <$> imps
+  conv (C.ImportList { moduleName, imports }) = conv' <$> imports
   conv' (C.Import {moduleName, qualifier}) = {
     "module": moduleName,
     qualifier: toNullable qualifier

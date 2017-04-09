@@ -17,7 +17,7 @@
     "purescript-aff": "^2.0.0",
     "purescript-argonaut": "^2.0.0",
     "purescript-strings": "^2.0.1",
-    "purescript-psc-ide": "^7.0.0",
+    "purescript-psc-ide": "https://github.com/kRITZCREEK/purescript-psc-ide.git#ab6065bb862dde718461a8c7ecf9fe8fc50ccabf",
     "purescript-refs": "^2.0.0",
     "purescript-nullable": "^2.0.0",
     "purescript-node-fs": "^3.0.0",

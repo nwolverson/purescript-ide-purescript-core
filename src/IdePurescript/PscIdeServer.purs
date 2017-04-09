@@ -77,11 +77,12 @@ startServer' :: forall eff eff'.
   String
   -> String
   -> Boolean
+  -> Boolean
   -> Array String
   -> Notify (ServerEff eff)
   -> Notify (ServerEff eff)
   -> Aff (ServerEff eff) { quit :: QuitCallback eff', port :: Maybe Int }
-startServer' path server addNpmBin glob cb logCb = do
+startServer' path server addNpmBin usePurs glob cb logCb = do
   pathVar <- liftEff $ getPathVar addNpmBin path
   serverBins <- findBins pathVar server
   case head serverBins of
@@ -95,7 +96,7 @@ startServer' path server addNpmBin glob cb logCb = do
         liftEff $ log $ x <> ": " <> fromMaybe "ERROR" vv) serverBins
       liftEff $ when (length serverBins > 1) $ cb Warning $ "Found multiple psc-ide-server executables; using " <> bin
       let glob' = if join (parseVersion <$> trim <$> version) >= Just (Version 0 9 2) then glob else []
-      res <- startServer bin path glob'
+      res <- startServer bin path glob' usePurs
       let noRes = { quit: pure unit, port: Nothing }
       liftEff $ case res of
         CorrectPath usedPort -> { quit: pure unit, port: Just usedPort } <$ cb Info ("Found existing psc-ide-server with correct path on port " <> show usedPort)
@@ -119,8 +120,8 @@ startServer' path server addNpmBin glob cb logCb = do
       onDataString (stdout cp) UTF8 (log Info)
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
-startServer :: forall eff. String -> String -> Array String -> Aff (ServerEff eff) ServerStartResult
-startServer exe rootPath glob = do
+startServer :: forall eff. String -> String -> Array String -> Boolean -> Aff (ServerEff eff) ServerStartResult
+startServer exe rootPath glob usePurs = do
   port <- liftEff $ getSavedPort rootPath
   case port of
     Just p -> do
@@ -135,7 +136,7 @@ startServer exe rootPath glob = do
     liftEff $ do
       log $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
-    r newPort <$> S.startServer (defaultServerArgs { exe = exe, cwd = Just rootPath, port = Just newPort, source = glob })
+    r newPort <$> S.startServer (defaultServerArgs { exe = exe, combinedExe = usePurs, cwd = Just rootPath, port = Just newPort, source = glob })
     where
       r newPort (S.Started cp) = Started newPort cp
       r _ (S.Closed) = Closed
