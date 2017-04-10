@@ -75,12 +75,13 @@ getMainModule text =
 
 getModulesForFile :: forall eff. Int -> Path -> String -> Aff (net :: P.NET | eff) State
 getModulesForFile port file fullText = do
-  imports <- P.listImports port file
-  let modules = either (const []) (\(C.ImportList l) -> map mod l) imports
-      main = getMainModule fullText
+  C.ImportList { moduleName, imports } <- either (const default) id <$> P.listImports port file
+  let modules = map mod imports
+      main = maybe (getMainModule fullText) Just moduleName
       identifiers = concatMap idents modules
   pure { main, modules, identifiers }
   where
+  default = C.ImportList { moduleName: Nothing, imports: [] }
   mod (C.Import imp) = Module imp
   idents (Module { importType: Explicit ids }) = ids
   idents _ = []
