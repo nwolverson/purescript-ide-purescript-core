@@ -23,7 +23,7 @@ import Data.Array (length, head)
 import Data.Either (either)
 import Data.Int (fromNumber)
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
-import Data.String (Pattern(Pattern), trim, split)
+import Data.String (Pattern(Pattern), split, toLower, trim)
 import Data.Traversable (traverse, traverse_)
 import Global (readInt)
 import IdePurescript.Exec (getPathVar, findBins)
@@ -32,10 +32,14 @@ import Node.Buffer (BUFFER)
 import Node.ChildProcess (CHILD_PROCESS, ChildProcess, stderr, stdout)
 import Node.Encoding (Encoding(..))
 import Node.FS (FS)
-import Node.Process (PROCESS)
+import Node.Path (normalize)
+import Node.Platform (Platform(..))
+import Node.Process (PROCESS, platform)
 import Node.Stream (onDataString)
 import PscIde (NET)
 import PscIde.Server (Executable(Executable), getSavedPort, defaultServerArgs, savePort, pickFreshPort)
+
+
 
 type Port = Int
 
@@ -45,6 +49,7 @@ data ServerStartResult =
   | Started Port ChildProcess
   | Closed
   | StartError String
+
 
 type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
 
@@ -143,14 +148,16 @@ startServer exe rootPath glob usePurs = do
       r _ (S.StartError s) = StartError s
 
   gotPath port workingDir =
-    liftEff $ if workingDir == rootPath then
+    liftEff $ if normalizePath workingDir == normalizePath rootPath then
         do
           log $ "Found psc-ide-server on port " <> show port <> " with correct path: " <> workingDir
           pure $ CorrectPath port
       else
         do
-          log $ "Found psc-ide-server on port " <> show port <> " with wrong path: " <> workingDir <> " instead of " <> rootPath
+          log $ "Found psc-ide-server on port " <> show port <> " with wrong path: " <> normalizePath workingDir <> " instead of " <> normalizePath rootPath
           pure $ WrongPath port workingDir
+
+  normalizePath = (if platform == Win32 then toLower else id) <<< normalize
 
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
 stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS, exception :: EXCEPTION | eff) Unit
