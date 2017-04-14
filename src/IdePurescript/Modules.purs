@@ -127,8 +127,8 @@ withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs
   -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
 withTempFile fileName text action = do
   dir <- liftEff tmpDir
-  let name = replace' (R.regex "[\\/\\\\]" R.global) "-" fileName
-      tmpFile = dir <> sep <> "ide-purescript." <> name <> ".purs"
+  let name = replace' (R.regex "[\\/\\\\:]" R.global) "-" fileName
+      tmpFile = dir <> sep <> "ide-purescript-" <> name
   FS.writeTextFile UTF8 tmpFile text
   res <- action tmpFile
   answer <- case res of
