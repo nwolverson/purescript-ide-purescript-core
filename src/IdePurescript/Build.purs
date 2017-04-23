@@ -94,8 +94,7 @@ build buildOptions@{ command: Command cmd args, directory, useNpmDir } = do
 
 rebuild :: forall eff. Int -> String -> Aff (net :: NET | eff) BuildResult
 rebuild port file = do
-
-  res <- rebuild' port file
+  res <- rebuild'
   either
     (throwError <<< error)
     (pure <<< onResult)
@@ -120,5 +119,5 @@ rebuild port file = do
     <<<
     bimap wrapError wrapError
 
-  rebuild' :: Int -> String -> P.CmdR RebuildResult RebuildResult
-  rebuild' port file = P.sendCommandR port (PC.RebuildCmd file)
+  rebuild' :: P.CmdR RebuildResult RebuildResult
+  rebuild' = P.sendCommandR port (PC.RebuildCmd file)

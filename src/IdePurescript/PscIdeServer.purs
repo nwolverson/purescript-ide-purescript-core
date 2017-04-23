@@ -96,9 +96,9 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
         <> server <> " in PATH: " <> either id id pathVar
       pure { quit: pure unit, port: Nothing }
     Just (Executable bin version) -> do
-      liftEff $ log $ "Resolved psc-ide-server paths (1st is used):"
+      liftEff $ logCb Info "Resolved psc-ide-server paths (1st is used):"
       traverse_ (\(Executable x vv) -> do
-        liftEff $ log $ x <> ": " <> fromMaybe "ERROR" vv) serverBins
+        liftEff $ logCb Info $ x <> ": " <> fromMaybe "ERROR" vv) serverBins
       liftEff $ when (length serverBins > 1) $ cb Warning $ "Found multiple psc-ide-server executables; using " <> bin
       let glob' = if join (parseVersion <$> trim <$> version) >= Just (Version 0 9 2) then glob else []
       res <- startServer bin path glob' usePurs
