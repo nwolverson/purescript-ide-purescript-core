@@ -39,8 +39,6 @@ import Node.Stream (onDataString)
 import PscIde (NET)
 import PscIde.Server (Executable(Executable), getSavedPort, defaultServerArgs, savePort, pickFreshPort)
 
-
-
 type Port = Int
 
 data ServerStartResult =
@@ -49,7 +47,6 @@ data ServerStartResult =
   | Started Port ChildProcess
   | Closed
   | StartError String
-
 
 type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
 

@@ -4,6 +4,7 @@ module IdePurescript.Modules (
   , State
   , getMainModule
   , getModulesForFile
+  , getModulesForFileTemp
   , getUnqualActiveModules
   , getAllActiveModules
   , getQualModule
@@ -86,6 +87,13 @@ getModulesForFile port file fullText = do
   idents (Module { importType: Explicit ids }) = ids
   idents _ = []
 
+getModulesForFileTemp :: forall eff. Int -> Path -> String -> Aff (net :: P.NET, fs :: FS | eff) State
+getModulesForFileTemp port file fullText = do
+  tmpFile <- makeTempFile file fullText
+  res <- getModulesForFile port tmpFile fullText
+  FS.unlink tmpFile
+  pure res
+
 mkImplicit :: String -> Module
 mkImplicit m = Module { qualifier: Nothing, importType: Implicit, moduleName: m }
 
@@ -123,13 +131,18 @@ foreign import tmpDir :: forall eff. Eff (fs :: FS | eff) String
 
 data ImportResult = UpdatedImports String | AmbiguousImport (Array C.TypeInfo) | FailedImport
 
-withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs :: FS | eff) (Either String C.ImportResult))
-  -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
-withTempFile fileName text action = do
+makeTempFile :: forall eff. Path -> String -> Aff (fs :: FS | eff) Path
+makeTempFile fileName text = do
   dir <- liftEff tmpDir
   let name = replace' (R.regex "[\\/\\\\:]" R.global) "-" fileName
       tmpFile = dir <> sep <> "ide-purescript-" <> name
   FS.writeTextFile UTF8 tmpFile text
+  pure tmpFile
+
+withTempFile :: forall eff. String -> String -> (String -> Aff (net :: P.NET, fs :: FS | eff) (Either String C.ImportResult))
+  -> Aff (net :: P.NET, fs :: FS | eff) ImportResult
+withTempFile fileName text action = do
+  tmpFile <- makeTempFile fileName text
   res <- action tmpFile
   answer <- case res of
     Right (C.SuccessFile _) -> UpdatedImports <$> FS.readTextFile UTF8 tmpFile
