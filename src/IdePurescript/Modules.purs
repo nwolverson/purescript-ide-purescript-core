@@ -18,7 +18,7 @@ import Prelude
 import Node.FS.Aff as FS
 import PscIde as P
 import PscIde.Command as C
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (Aff, attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Array (findLastIndex, filter, singleton, concatMap, (:))
@@ -91,7 +91,7 @@ getModulesForFileTemp :: forall eff. Int -> Path -> String -> Aff (net :: P.NET,
 getModulesForFileTemp port file fullText = do
   tmpFile <- makeTempFile file fullText
   res <- getModulesForFile port tmpFile fullText
-  FS.unlink tmpFile
+  _ <- attempt $ FS.unlink tmpFile
   pure res
 
 mkImplicit :: String -> Module
@@ -148,7 +148,7 @@ withTempFile fileName text action = do
     Right (C.SuccessFile _) -> UpdatedImports <$> FS.readTextFile UTF8 tmpFile
     Right (C.MultipleResults a) -> pure $ AmbiguousImport a
     _ -> pure FailedImport
-  FS.unlink tmpFile
+  _ <- attempt $ FS.unlink tmpFile
   pure answer
 
 addModuleImport :: forall eff. State -> Int -> String -> String -> String
