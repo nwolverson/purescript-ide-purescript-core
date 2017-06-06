@@ -16,7 +16,7 @@ import Control.Monad.Aff (runAff, Aff, attempt)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Random (RANDOM)
 import Data.Array (length, head)
@@ -98,7 +98,7 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
         liftEff $ logCb Info $ x <> ": " <> fromMaybe "ERROR" vv) serverBins
       liftEff $ when (length serverBins > 1) $ cb Warning $ "Found multiple psc-ide-server executables; using " <> bin
       let glob' = if join (parseVersion <$> trim <$> version) >= Just (Version 0 9 2) then glob else []
-      res <- startServer bin path glob' usePurs
+      res <- startServer logCb bin path glob' usePurs
       let noRes = { quit: pure unit, port: Nothing }
       liftEff $ case res of
         CorrectPath usedPort -> { quit: pure unit, port: Just usedPort } <$ cb Info ("Found existing psc-ide-server with correct path on port " <> show usedPort)
@@ -122,13 +122,13 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
       onDataString (stdout cp) UTF8 (log Info)
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
-startServer :: forall eff. String -> String -> Array String -> Boolean -> Aff (ServerEff eff) ServerStartResult
-startServer exe rootPath glob usePurs = do
+startServer :: forall eff. Notify (ServerEff eff) -> String -> String -> Array String -> Boolean -> Aff (ServerEff eff) ServerStartResult
+startServer logCb exe rootPath glob usePurs = do
   port <- liftEff $ getSavedPort rootPath
   case port of
     Just p -> do
       workingDir <- attempt $ PscIde.cwd p
-      liftEff $ log $ "Found existing port from file: " <> show p <> (either (const "") (", cwd: " <> _) workingDir)
+      liftEff $ logCb Info $ "Found existing port from file: " <> show p <> (either (const "") (", cwd: " <> _) workingDir)
       either (const launchServer) (gotPath p) workingDir
     Nothing -> launchServer
 
@@ -136,7 +136,7 @@ startServer exe rootPath glob usePurs = do
   launchServer = do
     newPort <- liftEff pickFreshPort
     liftEff $ do
-      log $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
+      logCb Info $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
     r newPort <$> S.startServer (defaultServerArgs { exe = exe, combinedExe = usePurs, cwd = Just rootPath, port = Just newPort, source = glob })
     where
@@ -147,11 +147,11 @@ startServer exe rootPath glob usePurs = do
   gotPath port workingDir =
     liftEff $ if normalizePath workingDir == normalizePath rootPath then
         do
-          log $ "Found psc-ide-server on port " <> show port <> " with correct path: " <> workingDir
+          logCb Info $ "Found psc-ide-server on port " <> show port <> " with correct path: " <> workingDir
           pure $ CorrectPath port
       else
         do
-          log $ "Found psc-ide-server on port " <> show port <> " with wrong path: " <> normalizePath workingDir <> " instead of " <> normalizePath rootPath
+          logCb Info $ "Found psc-ide-server on port " <> show port <> " with wrong path: " <> normalizePath workingDir <> " instead of " <> normalizePath rootPath
           pure $ WrongPath port workingDir
 
   normalizePath = (if platform == Win32 then toLower else id) <<< normalize
