@@ -12,7 +12,7 @@ module IdePurescript.PscIdeServer
 
 import Prelude
 import PscIde.Server as S
-import Control.Monad.Aff (runAff, Aff, attempt)
+import Control.Monad.Aff (Aff, attempt, liftEff')
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
@@ -50,7 +50,7 @@ data ServerStartResult =
 
 type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
 
-type QuitCallback eff = (Eff (exception :: EXCEPTION, net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
+type QuitCallback eff = (Aff (net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
 
 data ErrorLevel = Success | Info | Warning | Error
 type Notify eff = ErrorLevel -> String -> Eff eff Unit
@@ -71,7 +71,6 @@ instance ordVersion :: Ord Version where
 
 instance showVersion :: Show Version where
   show (Version a b c) = show a <> "." <> show b <> "." <> show c
-
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
 -- | Will notify as to what is happening, choose to supply globs appropriately
@@ -110,7 +109,7 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
           cb Success $ "Started psc-ide-server (port " <> show usedPort <> ")"
           wireOutput cp logCb
           pure
-            { quit: void $ runAff (\_ -> pure unit) (\_ -> pure unit) $ stopServer usedPort path cp
+            { quit: stopServer usedPort path cp
             , port: Just usedPort
             }
         Closed -> noRes <$ cb Info "psc-ide-server exited with success code"
@@ -157,8 +156,8 @@ startServer logCb exe rootPath glob usePurs = do
   normalizePath = (if platform == Win32 then toLower else id) <<< normalize
 
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
-stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS, exception :: EXCEPTION | eff) Unit
+stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS | eff) Unit
 stopServer port rootPath cp = do
   oldPort <- liftEff $ S.getSavedPort rootPath
-  liftEff $ when (oldPort == Just port) $ S.deleteSavedPort rootPath
+  _ <- liftEff' $ when (oldPort == Just port) $ S.deleteSavedPort rootPath
   S.stopServer port
