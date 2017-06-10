@@ -1,15 +1,10 @@
 module IdePurescript.Build where
 
 import Prelude
-import Data.List as List
-import Node.ChildProcess as CP
-import Node.Stream as S
-import PscIde as P
-import PscIde.Command as PC
+
 import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION, error, catchException)
 import Control.Monad.Eff.Ref (readRef, REF, modifyRef, newRef)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
@@ -18,6 +13,7 @@ import Data.Array (uncons, singleton)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(..))
 import Data.Foldable (find)
+import Data.List as List
 import Data.Maybe (maybe, Maybe(..))
 import Data.StrMap (fromFoldable)
 import Data.String (Pattern(Pattern), split, indexOf)
@@ -25,12 +21,17 @@ import Data.Traversable (traverse_)
 import Data.Tuple (Tuple(Tuple))
 import IdePurescript.Exec (findBins, getPathVar)
 import IdePurescript.PscErrors (PscError(PscError), RebuildResult(RebuildError, RebuildResult), PscResult, parsePscOutput)
+import IdePurescript.PscIdeServer (ErrorLevel(..), Notify)
 import Node.Buffer (BUFFER)
 import Node.ChildProcess (ChildProcess, CHILD_PROCESS)
+import Node.ChildProcess as CP
 import Node.Encoding (Encoding(UTF8))
 import Node.FS (FS)
 import Node.Process (PROCESS)
+import Node.Stream as S
 import PscIde (NET)
+import PscIde as P
+import PscIde.Command as PC
 import PscIde.Server (Executable(Executable))
 
 type BuildOptions =
@@ -62,14 +63,14 @@ spawn { command: Command cmd args, directory, useNpmDir } = do
     _ -> pure Nothing
   pure { cmdBins, cp }
 
-type BuildEff eff = (cp :: CP.CHILD_PROCESS, buffer :: BUFFER, fs :: FS, console :: CONSOLE, ref :: REF, process :: PROCESS | eff)
-build :: forall eff. BuildOptions -> Aff (BuildEff eff) BuildResult
-build buildOptions@{ command: Command cmd args, directory, useNpmDir } = do
+type BuildEff eff = (cp :: CP.CHILD_PROCESS, buffer :: BUFFER, fs :: FS, ref :: REF, process :: PROCESS | eff)
+build :: forall eff. Notify (BuildEff eff) -> BuildOptions -> Aff (BuildEff eff) BuildResult
+build logCb buildOptions@{ command: Command cmd args, directory, useNpmDir } = do
   { cmdBins, cp: cp' } <- spawn buildOptions
   makeAff $ \err succ -> do
-    log $ "Resolved build command (1st is used): "
+    logCb Info $ "Resolved build command (1st is used): "
     traverse_ (\(Executable x vv) -> do
-      log $ x <> maybe "" (": " <> _) vv) cmdBins
+      logCb Info $ x <> maybe "" (": " <> _) vv) cmdBins
     case cp' of
       Nothing -> err $ error $ "Didn't find command in PATH: " <> cmd
       Just cp -> do

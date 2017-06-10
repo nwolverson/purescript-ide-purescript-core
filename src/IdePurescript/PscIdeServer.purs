@@ -16,7 +16,6 @@ import Control.Monad.Aff (Aff, attempt, liftEff')
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Random (RANDOM)
 import Data.Array (length, head)
@@ -48,7 +47,7 @@ data ServerStartResult =
   | Closed
   | StartError String
 
-type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
+type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
 
 type QuitCallback eff = (Aff (net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
 

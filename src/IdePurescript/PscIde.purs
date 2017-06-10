@@ -17,7 +17,7 @@ import Data.Nullable (toNullable, Nullable)
 import Data.String.Regex (regex)
 import Data.String.Regex.Flags (global)
 import IdePurescript.Regex (replace')
-import PscIde.Command (TypePosition)
+import PscIde.Command (CompletionOptions, TypePosition)
 
 eitherToErr :: forall a eff. Aff (net :: P.NET | eff) (Either String a) -> (Aff (net :: P.NET | eff) a)
 eitherToErr c = do
@@ -77,15 +77,15 @@ getType port text currentModule modulePrefix unqualModules getQualifiedModule =
 
 type CompletionResult = {type :: String, identifier :: String, module :: String}
 
-getCompletion :: forall eff. Int -> String -> Maybe String -> Maybe String -> Array String -> (String -> Array String)
+getCompletion :: forall eff. Int -> String -> Maybe String -> Maybe String -> Array String -> (String -> Array String) -> CompletionOptions
   -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
 getCompletion port prefix =
   getCompletion' Nothing [C.PrefixFilter prefix] port
 
-getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> Maybe String -> Array String -> (String -> Array String)
+getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe String -> Maybe String -> Array String -> (String -> Array String) -> CompletionOptions
   -> Aff (net :: P.NET | eff) (Array C.TypeInfo)
-getCompletion' matcher mainFilter port currentModule modulePrefix unqualModules getQualifiedModule =
-  eitherToErr $ P.complete port (mainFilter <> moduleFilters) matcher currentModule
+getCompletion' matcher mainFilter port currentModule modulePrefix unqualModules getQualifiedModule opts =
+  eitherToErr $ P.complete port (mainFilter <> moduleFilters) matcher currentModule opts
   where
   moduleFilters = [ C.ModuleFilter $ maybe unqualModules getQualifiedModule modulePrefix ]
 
@@ -100,7 +100,7 @@ getPursuitCompletion port str = result (map convPursuitCompletion) $ P.pursuitCo
 
 convPursuitCompletion :: C.PursuitCompletion -> SearchResult
 convPursuitCompletion (C.PursuitCompletion { identifier, type', module', package, text })
-  = { identifier, package, type: type', module: module', text }
+  = { identifier, package, type: type', "module": module', text }
 
 data ModuleCompletion = ModuleCompletion {
   module' :: String,
@@ -129,4 +129,4 @@ getPursuitModuleCompletion port str = result (map convPursuitModuleCompletion) $
 
   convPursuitModuleCompletion :: ModuleCompletion -> ModuleSearchResult
   convPursuitModuleCompletion (ModuleCompletion { module', package })
-    = { package, module: module' }
+    = { package, "module": module' }
