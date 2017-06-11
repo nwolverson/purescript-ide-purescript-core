@@ -16,7 +16,6 @@ import Control.Monad.Aff (Aff, attempt, liftEff')
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Random (RANDOM)
 import Data.Array (length, head)
@@ -48,7 +47,7 @@ data ServerStartResult =
   | Closed
   | StartError String
 
-type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, console :: CONSOLE, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
+type ServerEff eff = (cp :: CHILD_PROCESS, process :: PROCESS, net :: NET, avar :: AVAR, fs :: FS, exception :: EXCEPTION, random :: RANDOM, buffer :: BUFFER | eff)
 
 type QuitCallback eff = (Aff (net :: NET, cp :: CHILD_PROCESS, fs :: FS | eff) Unit)
 
@@ -88,32 +87,32 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
   serverBins <- findBins pathVar server
   case head serverBins of
     Nothing -> do
-      liftEff $ cb Info $ "Couldn't find psc-ide-server, check PATH. Looked for: "
+      liftEff $ cb Info $ "Couldn't find IDE server, check PATH. Looked for: "
         <> server <> " in PATH: " <> either id id pathVar
       pure { quit: pure unit, port: Nothing }
     Just (Executable bin version) -> do
-      liftEff $ logCb Info "Resolved psc-ide-server paths (1st is used):"
-      traverse_ (\(Executable x vv) -> do
+      liftEff $ logCb Info $ "Resolved IDE server paths (npm-bin: " <> show addNpmBin <> ") from PATH of " <> either id id pathVar <> " (1st is used):"
+      traverse_ (\(Executable x vv) ->
         liftEff $ logCb Info $ x <> ": " <> fromMaybe "ERROR" vv) serverBins
-      liftEff $ when (length serverBins > 1) $ cb Warning $ "Found multiple psc-ide-server executables; using " <> bin
+      liftEff $ when (length serverBins > 1) $ cb Warning $ "Found multiple IDE server executables; using " <> bin
       let glob' = if join (parseVersion <$> trim <$> version) >= Just (Version 0 9 2) then glob else []
       res <- startServer logCb bin path glob' usePurs
       let noRes = { quit: pure unit, port: Nothing }
       liftEff $ case res of
-        CorrectPath usedPort -> { quit: pure unit, port: Just usedPort } <$ cb Info ("Found existing psc-ide-server with correct path on port " <> show usedPort)
+        CorrectPath usedPort -> { quit: pure unit, port: Just usedPort } <$ cb Info ("Found existing IDE server with correct path on port " <> show usedPort)
         WrongPath usedPort wrongPath -> do
-          cb Error $ "Found existing psc-ide-server on port '" <> show usedPort <> "' with wrong path: '" <> wrongPath
+          cb Error $ "Found existing IDE server on port '" <> show usedPort <> "' with wrong path: '" <> wrongPath
             <> "'. Correct, kill or configure a different port, and restart."
           pure noRes
         Started usedPort cp -> do
-          cb Success $ "Started psc-ide-server (port " <> show usedPort <> ")"
+          cb Success $ "Started IDE server (port " <> show usedPort <> ")"
           wireOutput cp logCb
           pure
             { quit: stopServer usedPort path cp
             , port: Just usedPort
             }
-        Closed -> noRes <$ cb Info "psc-ide-server exited with success code"
-        StartError err -> noRes <$ (cb Error $ "Could not start psc-ide-server process. Check the configured port number is valid.\n" <> err)
+        Closed -> noRes <$ cb Info "IDE server exited with success code"
+        StartError err -> noRes <$ (cb Error $ "Could not start IDE server process. Check the configured port number is valid.\n" <> err)
   where
     wireOutput :: ChildProcess -> Notify (ServerEff eff) -> Eff (ServerEff eff) Unit
     wireOutput cp log = do
@@ -135,7 +134,7 @@ startServer logCb exe rootPath glob usePurs = do
   launchServer = do
     newPort <- liftEff pickFreshPort
     liftEff $ do
-      logCb Info $ "Starting psc-ide-server on port " <> show newPort <> " with cwd " <> rootPath
+      logCb Info $ "Starting IDE server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
     r newPort <$> S.startServer (defaultServerArgs { exe = exe, combinedExe = usePurs, cwd = Just rootPath, port = Just newPort, source = glob })
     where
@@ -146,11 +145,11 @@ startServer logCb exe rootPath glob usePurs = do
   gotPath port workingDir =
     liftEff $ if normalizePath workingDir == normalizePath rootPath then
         do
-          logCb Info $ "Found psc-ide-server on port " <> show port <> " with correct path: " <> workingDir
+          logCb Info $ "Found IDE server on port " <> show port <> " with correct path: " <> workingDir
           pure $ CorrectPath port
       else
         do
-          logCb Info $ "Found psc-ide-server on port " <> show port <> " with wrong path: " <> normalizePath workingDir <> " instead of " <> normalizePath rootPath
+          logCb Info $ "Found IDE server on port " <> show port <> " with wrong path: " <> normalizePath workingDir <> " instead of " <> normalizePath rootPath
           pure $ WrongPath port workingDir
 
   normalizePath = (if platform == Win32 then toLower else id) <<< normalize

@@ -17,12 +17,13 @@
     "purescript-aff": "^3.0.0",
     "purescript-argonaut": "^3.0.0",
     "purescript-strings": "^3.0.0",
-    "purescript-psc-ide": "^8.0.1",
+    "purescript-psc-ide": "^9.0.0",
     "purescript-refs": "^3.0.0",
     "purescript-nullable": "^3.0.0",
     "purescript-node-fs": "^4.0.0",
     "purescript-node-child-process": "^4.0.0",
     "purescript-node-fs-aff": "^4.0.0",
-    "purescript-node-process": "^4.0.0"
+    "purescript-node-process": "^4.0.0",
+    "purescript-stringutils": "^0.0.6"
   }
 }

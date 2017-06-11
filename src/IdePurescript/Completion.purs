@@ -1,23 +1,27 @@
 module IdePurescript.Completion where
 
 import Prelude
+
+import Control.Alt ((<|>))
 import Control.Monad.Aff (Aff)
-import Data.Array (filter)
+import Data.Array (filter, head, intersect, sortBy)
 import Data.Either (Either)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String (Pattern(..), contains, indexOf)
+import Data.String (Pattern(..), contains, indexOf, length)
+import Data.String.Utils (startsWith)
 import Data.String.Regex (Regex, regex)
 import Data.String.Regex.Flags (noFlags)
 import IdePurescript.PscIde (eitherToErr, getCompletion)
 import IdePurescript.Regex (match', test')
 import IdePurescript.Tokens (identPart, modulePart, moduleRegex)
 import PscIde (NET, listAvailableModules)
-import PscIde.Command (ModuleList(..), TypeInfo(..))
+import PscIde.Command (CompletionOptions(..), ModuleList(..), TypeInfo(..))
 
 type ModuleInfo =
   { modules :: Array String
   , getQualifiedModule :: String -> Array String
   , mainModule :: Maybe String
+  , importedModules :: Array String
   }
 
 data SuggestionType = Module | Type | Function | Value
@@ -33,17 +37,26 @@ getModuleSuggestions port prefix = do
 
 data SuggestionResult =
   ModuleSuggestion { text :: String, suggestType :: SuggestionType, prefix :: String }
-  | IdentSuggestion { mod :: String, identifier :: String, qualifier :: Maybe String, valueType :: String, suggestType :: SuggestionType, prefix :: String }
+  | IdentSuggestion { origMod :: String, exportMod :: String, exportedFrom :: Array String, identifier :: String, qualifier :: Maybe String, valueType :: String, suggestType :: SuggestionType, prefix :: String }
 
 getSuggestions :: forall eff. Int -> {
     line :: String,
-    moduleInfo :: ModuleInfo
+    moduleInfo :: ModuleInfo,
+    groupCompletions :: Boolean,
+    maxResults :: Maybe Int,
+    preferredModules :: Array String
   } -> Aff (net :: NET | eff) (Array SuggestionResult)
-getSuggestions port { line, moduleInfo: { modules, getQualifiedModule, mainModule } } =
+getSuggestions port
+    { line
+    , moduleInfo: { modules, getQualifiedModule, mainModule, importedModules }
+    , maxResults
+    , groupCompletions
+    , preferredModules
+    } =
   if moduleExplicit then
     case match' explicitImportRegex line of
       Just [ Just _, Just mod, Just token ] -> do
-        completions <- getCompletion port token mainModule Nothing [ mod ] getQualifiedModule
+        completions <- getCompletion port token mainModule Nothing [ mod ] getQualifiedModule opts
         pure $ map (result (Just mod) token) completions
       _ -> pure []
   else
@@ -54,10 +67,12 @@ getSuggestions port { line, moduleInfo: { modules, getQualifiedModule, mainModul
           completions <- getModuleSuggestions port prefix
           pure $ map (modResult prefix) completions
         else do
-          completions <- getCompletion port token mainModule mod modules getQualifiedModule
+          completions <- getCompletion port token mainModule mod modules getQualifiedModule opts
           pure $ map (result mod token) completions
       Nothing -> pure []
     where
+    opts = CompletionOptions { maxResults, groupReexports: groupCompletions }
+
     getModuleName "" token  = token
     getModuleName mod token = mod <> "." <> token
 
@@ -72,10 +87,23 @@ getSuggestions port { line, moduleInfo: { modules, getQualifiedModule, mainModul
         _ -> Nothing
 
     modResult prefix moduleName = ModuleSuggestion { text: moduleName, suggestType: Module, prefix }
-    result qualifier prefix (TypeInfo {type', identifier, module': mod}) =
-      IdentSuggestion { mod, identifier, qualifier, suggestType, prefix, valueType: type' }
+    result qualifier prefix (TypeInfo {type', identifier, module': origMod, exportedFrom}) =
+      IdentSuggestion { origMod, exportMod, identifier, qualifier, suggestType, prefix, valueType: type', exportedFrom }
       where
         suggestType =
           if contains (Pattern "->") type' then Function
           else if test' (regex "^[A-Z]" noFlags) identifier then Type
           else Value
+
+        -- Strategies for picking the re-export to choose
+        -- 1. Existing imports
+        -- 2. User configuration of preferred modules (ordered list)
+        -- 3. Re-export from a prefix named module (e.g. Foo.Bar.Baz reexported from Foo.Bar) shortest first
+        -- 4. Original module (if none of the previous rules apply, there are no re-exports, or either grouping
+        --    is disabled or compiler version does not support it)
+        exportMod = fromMaybe origMod (existingModule <|> preferredModule <|> prefixModule)
+        existingModule = head $ intersect importedModules exportedFrom
+        preferredModule = head $ intersect preferredModules exportedFrom
+        prefixModule = head $
+          sortBy (\a b -> length a `compare` length b) $
+          filter (\m -> startsWith (m <> ".") origMod) exportedFrom

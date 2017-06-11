@@ -1,5 +1,5 @@
 // module IdePurescript.Modules
 
 exports.tmpDir = function() {
-  return require('os').tmpDir();
+  return require('os').tmpdir();
 };
