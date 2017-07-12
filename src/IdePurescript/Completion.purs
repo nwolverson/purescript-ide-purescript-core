@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Monad.Aff (Aff)
-import Data.Array (filter, head, intersect, sortBy)
+import Data.Array (filter, head, intersect, sortBy, (:))
 import Data.Either (Either)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), contains, indexOf, length)
@@ -67,7 +67,7 @@ getSuggestions port
           completions <- getModuleSuggestions port prefix
           pure $ map (modResult prefix) completions
         else do
-          completions <- getCompletion port token mainModule mod modules getQualifiedModule opts
+          completions <- getCompletion port token mainModule mod ("Prim":modules) getQualifiedModule opts
           pure $ map (result mod token) completions
       Nothing -> pure []
     where

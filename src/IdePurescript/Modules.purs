@@ -98,17 +98,19 @@ mkImplicit :: String -> Module
 mkImplicit m = Module { qualifier: Nothing, importType: Implicit, moduleName: m }
 
 getUnqualActiveModules :: State -> Maybe String -> Array String
-getUnqualActiveModules {modules, main} ident =
-  map getModuleName $ maybe [] (singleton <<< mkImplicit) main <> filter include modules
+getUnqualActiveModules state@{modules, main} ident = getModules include state
   where
   include (Module { qualifier: Just _ }) = false
   include (Module { importType: Explicit idents }) = maybe false (\x -> x `elem` idents || ("(" <> x <> ")") `elem` idents) ident
   include (Module { importType: Implicit }) = true
   include (Module { importType: Hiding idents }) =  maybe true (_ `notElem` idents) ident
 
-getAllActiveModules  :: State -> Array String
-getAllActiveModules {modules, main} =
-  map getModuleName $ maybe [] (singleton <<< mkImplicit) main <> modules
+getAllActiveModules :: State -> Array String
+getAllActiveModules = getModules (const true)
+
+getModules :: (Module -> Boolean) -> State -> Array String
+getModules include { modules, main } =
+  ([ "Prim" ] <> _ ) $ map getModuleName $ maybe [] (singleton <<< mkImplicit) main <> filter include modules
 
 getQualModule :: String -> State -> Array String
 getQualModule qualifier {modules} =
