@@ -1,5 +1,20 @@
 module IdePurescript.QuickFix where
 
+import Prelude
+
+import Data.String (null)
+import Data.String.Regex (regex)
+import Data.String.Regex.Flags (global, noFlags)
+import IdePurescript.Regex (replace', test')
+
+-- | Modify suggestion replacement text, removing extraneous newlines
+getReplacement :: String -> String -> String
+getReplacement replacement extraText =
+  let trailingNewline = test' (regex "\n\\s+$" noFlags) replacement
+      addNewline = trailingNewline && (not $ null extraText)
+  in
+      replace' (regex "\\s+\n" global) "\n" replacement
+
 -- | Get a title which explains what applying a compiler suggestion will do
 getTitle :: String -> String
 getTitle code = case code of
