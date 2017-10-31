@@ -11,7 +11,7 @@ module IdePurescript.PscIdeServer
   ) where
 
 import Prelude
-import PscIde.Server as S
+
 import Control.Monad.Aff (Aff, attempt, liftEff')
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff (Eff)
@@ -22,7 +22,7 @@ import Data.Array (length, head)
 import Data.Either (either)
 import Data.Int (fromNumber)
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
-import Data.String (Pattern(Pattern), split, toLower, trim)
+import Data.String (Pattern(Pattern), split, toLower)
 import Data.Traversable (traverse, traverse_)
 import Global (readInt)
 import IdePurescript.Exec (getPathVar, findBins)
@@ -36,7 +36,8 @@ import Node.Platform (Platform(..))
 import Node.Process (PROCESS, platform)
 import Node.Stream (onDataString)
 import PscIde (NET)
-import PscIde.Server (Executable(Executable), getSavedPort, defaultServerArgs, savePort, pickFreshPort)
+import PscIde.Server (Executable(Executable), LogLevel, defaultServerArgs, getSavedPort, pickFreshPort, savePort)
+import PscIde.Server as S
 
 type Port = Int
 
@@ -71,18 +72,24 @@ instance ordVersion :: Ord Version where
 instance showVersion :: Show Version where
   show (Version a b c) = show a <> "." <> show b <> "." <> show c
 
+type ServerSettings =
+  { exe :: String
+  , combinedExe :: Boolean
+  , glob :: Array String
+  , logLevel :: Maybe LogLevel
+  , editorMode :: Boolean
+  }
+
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
 -- | Will notify as to what is happening, choose to supply globs appropriately
 startServer' :: forall eff eff'.
-  String
+  ServerSettings
   -> String
   -> Boolean
-  -> Boolean
-  -> Array String
   -> Notify (ServerEff eff)
   -> Notify (ServerEff eff)
   -> Aff (ServerEff eff) { quit :: QuitCallback eff', port :: Maybe Int }
-startServer' path server addNpmBin usePurs glob cb logCb = do
+startServer' settings@({ exe: server, glob }) path addNpmBin cb logCb = do
   pathVar <- liftEff $ getPathVar addNpmBin path
   serverBins <- findBins pathVar server
   case head serverBins of
@@ -95,8 +102,7 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
       traverse_ (\(Executable x vv) ->
         liftEff $ logCb Info $ x <> ": " <> fromMaybe "ERROR" vv) serverBins
       liftEff $ when (length serverBins > 1) $ cb Warning $ "Found multiple IDE server executables; using " <> bin
-      let glob' = if join (parseVersion <$> trim <$> version) >= Just (Version 0 9 2) then glob else []
-      res <- startServer logCb bin path glob' usePurs
+      res <- startServer logCb (settings { exe = bin }) path
       let noRes = { quit: pure unit, port: Nothing }
       liftEff $ case res of
         CorrectPath usedPort -> { quit: pure unit, port: Just usedPort } <$ cb Info ("Found existing IDE server with correct path on port " <> show usedPort)
@@ -120,8 +126,8 @@ startServer' path server addNpmBin usePurs glob cb logCb = do
       onDataString (stdout cp) UTF8 (log Info)
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
-startServer :: forall eff. Notify (ServerEff eff) -> String -> String -> Array String -> Boolean -> Aff (ServerEff eff) ServerStartResult
-startServer logCb exe rootPath glob usePurs = do
+startServer :: forall eff. Notify (ServerEff eff) -> ServerSettings -> String -> Aff (ServerEff eff) ServerStartResult
+startServer logCb { exe, combinedExe, glob, logLevel, editorMode } rootPath = do
   port <- liftEff $ getSavedPort rootPath
   case port of
     Just p -> do
@@ -136,7 +142,7 @@ startServer logCb exe rootPath glob usePurs = do
     liftEff $ do
       logCb Info $ "Starting IDE server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
-    r newPort <$> S.startServer (defaultServerArgs { exe = exe, combinedExe = usePurs, cwd = Just rootPath, port = Just newPort, source = glob })
+    r newPort <$> S.startServer (defaultServerArgs { exe = exe, combinedExe = combinedExe, cwd = Just rootPath, port = Just newPort, source = glob , logLevel = logLevel, editorMode = editorMode })
     where
       r newPort (S.Started cp) = Started newPort cp
       r _ (S.Closed) = Closed

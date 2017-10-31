@@ -37,7 +37,7 @@ getModuleSuggestions port prefix = do
 
 data SuggestionResult =
   ModuleSuggestion { text :: String, suggestType :: SuggestionType, prefix :: String }
-  | IdentSuggestion { origMod :: String, exportMod :: String, exportedFrom :: Array String, identifier :: String, qualifier :: Maybe String, valueType :: String, suggestType :: SuggestionType, prefix :: String }
+  | IdentSuggestion { origMod :: String, exportMod :: String, exportedFrom :: Array String, identifier :: String, qualifier :: Maybe String, valueType :: String, suggestType :: SuggestionType, prefix :: String, documentation :: Maybe String }
 
 getSuggestions :: forall eff. Int -> {
     line :: String,
@@ -87,8 +87,8 @@ getSuggestions port
         _ -> Nothing
 
     modResult prefix moduleName = ModuleSuggestion { text: moduleName, suggestType: Module, prefix }
-    result qualifier prefix (TypeInfo {type', identifier, module': origMod, exportedFrom}) =
-      IdentSuggestion { origMod, exportMod, identifier, qualifier, suggestType, prefix, valueType: type', exportedFrom }
+    result qualifier prefix (TypeInfo {type', identifier, module': origMod, exportedFrom, documentation }) =
+      IdentSuggestion { origMod, exportMod, identifier, qualifier, suggestType, prefix, valueType: type', exportedFrom, documentation }
       where
         suggestType =
           if contains (Pattern "->") type' then Function

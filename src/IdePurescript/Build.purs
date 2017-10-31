@@ -121,4 +121,4 @@ rebuild port file = do
     bimap wrapError wrapError
 
   rebuild' :: P.CmdR RebuildResult RebuildResult
-  rebuild' = P.sendCommandR port (PC.RebuildCmd file)
+  rebuild' = P.sendCommandR port (PC.RebuildCmd file (Just file))
