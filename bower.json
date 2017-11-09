@@ -23,7 +23,7 @@
     "purescript-node-fs": "^4.0.0",
     "purescript-node-child-process": "^4.0.0",
     "purescript-node-fs-aff": "^4.0.0",
-    "purescript-node-process": "^4.0.0",
+    "purescript-node-process": "^5.0.0",
     "purescript-stringutils": "^0.0.6"
   }
 }

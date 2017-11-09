@@ -158,7 +158,7 @@ startServer logCb { exe, combinedExe, glob, logLevel, editorMode } rootPath = do
           logCb Info $ "Found IDE server on port " <> show port <> " with wrong path: " <> normalizePath workingDir <> " instead of " <> normalizePath rootPath
           pure $ WrongPath port workingDir
 
-  normalizePath = (if platform == Win32 then toLower else id) <<< normalize
+  normalizePath = (if platform == Just Win32 then toLower else id) <<< normalize
 
 -- | Stop a psc-ide server. Currently implemented by asking it nicely, but potentially by killing it if that doesn't work...
 stopServer :: forall eff. Int -> String -> ChildProcess -> Aff (cp :: CHILD_PROCESS, net :: NET, fs :: FS | eff) Unit
