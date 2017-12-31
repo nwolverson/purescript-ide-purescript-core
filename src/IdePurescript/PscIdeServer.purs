@@ -78,6 +78,8 @@ type ServerSettings =
   , glob :: Array String
   , logLevel :: Maybe LogLevel
   , editorMode :: Boolean
+  , polling :: Boolean
+  , outputDirectory :: Maybe String
   }
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
@@ -127,7 +129,7 @@ startServer' settings@({ exe: server, glob }) path addNpmBin cb logCb = do
 
 -- | Start a psc-ide server instance, or find one already running on the expected port, checking if it has the right path.
 startServer :: forall eff. Notify (ServerEff eff) -> ServerSettings -> String -> Aff (ServerEff eff) ServerStartResult
-startServer logCb { exe, combinedExe, glob, logLevel, editorMode } rootPath = do
+startServer logCb { exe, combinedExe, glob, logLevel, editorMode, polling, outputDirectory } rootPath = do
   port <- liftEff $ getSavedPort rootPath
   case port of
     Just p -> do
@@ -142,7 +144,17 @@ startServer logCb { exe, combinedExe, glob, logLevel, editorMode } rootPath = do
     liftEff $ do
       logCb Info $ "Starting IDE server on port " <> show newPort <> " with cwd " <> rootPath
       savePort newPort rootPath
-    r newPort <$> S.startServer (defaultServerArgs { exe = exe, combinedExe = combinedExe, cwd = Just rootPath, port = Just newPort, source = glob , logLevel = logLevel, editorMode = editorMode })
+    r newPort <$> S.startServer (defaultServerArgs
+      { exe = exe
+      , combinedExe = combinedExe
+      , cwd = Just rootPath
+      , port = Just newPort
+      , source = glob
+      , logLevel = logLevel
+      , editorMode = editorMode
+      , polling = polling
+      , outputDirectory = outputDirectory
+      })
     where
       r newPort (S.Started cp) = Started newPort cp
       r _ (S.Closed) = Closed
