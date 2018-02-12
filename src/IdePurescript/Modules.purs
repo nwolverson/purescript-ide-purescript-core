@@ -11,6 +11,7 @@ module IdePurescript.Modules (
   , findImportInsertPos
   , addModuleImport
   , addExplicitImport
+  , addQualifiedImport
   , ImportResult(..)
   ) where
 
@@ -197,3 +198,13 @@ addExplicitImport state port fileName text moduleName qualifier identifier =
     shouldAddMatch mn (Module { moduleName: moduleName', qualifier: Nothing, importType: Hiding idents })
       | moduleName' == mn = identifier `elem` idents
     shouldAddMatch _ _ = true
+
+addQualifiedImport :: forall eff. State -> Int -> String -> String -> String -> String
+  -> Aff (net :: P.NET, fs :: FS | eff) { state :: State, result :: ImportResult }
+addQualifiedImport state port fileName text moduleName qualifier =
+  if not isThisModule
+    then { state, result: _ } <$> withTempFile fileName text addImport
+    else pure { state, result: FailedImport }
+  where
+    addImport tmpFile = P.qualifiedImport port tmpFile (Just tmpFile) moduleName qualifier
+    isThisModule = Just moduleName == state.main

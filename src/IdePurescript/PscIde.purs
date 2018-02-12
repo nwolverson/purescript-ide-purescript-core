@@ -10,7 +10,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Error.Class (throwError)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Decode.Combinators ((.?))
-import Data.Array (head)
+import Data.Array (head, null)
 import Data.Either (Either(Right, Left))
 import Data.Maybe (maybe, Maybe(..))
 import Data.Nullable (toNullable, Nullable)
@@ -87,7 +87,8 @@ getCompletion' :: forall eff. Maybe C.Matcher -> Array C.Filter -> Int -> Maybe 
 getCompletion' matcher mainFilter port currentModule modulePrefix unqualModules getQualifiedModule opts =
   eitherToErr $ P.complete port (mainFilter <> moduleFilters) matcher currentModule opts
   where
-  moduleFilters = [ C.ModuleFilter $ maybe unqualModules getQualifiedModule modulePrefix ]
+  modules = maybe unqualModules getQualifiedModule modulePrefix
+  moduleFilters = [ C.ModuleFilter $ if null modules then unqualModules else modules ]
 
 loadDeps :: forall eff. Int -> String
   -> Aff (net :: P.NET | eff) String
