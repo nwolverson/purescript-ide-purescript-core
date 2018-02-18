@@ -3,11 +3,13 @@ module IdePurescript.Modules (
   , initialModulesState
   , State
   , getMainModule
+  , getModuleName
   , getModulesForFile
   , getModulesForFileTemp
   , getUnqualActiveModules
   , getAllActiveModules
   , getQualModule
+  , getModuleFromUnknownQualifier
   , findImportInsertPos
   , addModuleImport
   , addExplicitImport
@@ -16,9 +18,8 @@ module IdePurescript.Modules (
   ) where
 
 import Prelude
-import Node.FS.Aff as FS
-import PscIde as P
-import PscIde.Command as C
+
+import Control.Alt ((<|>))
 import Control.Monad.Aff (Aff, attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
@@ -27,14 +28,19 @@ import Data.Either (either, Either(..))
 import Data.Foldable (all, notElem, elem)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.Newtype (class Newtype)
+import Data.StrMap as SM
 import Data.String (Pattern(Pattern), split)
 import Data.String.Regex (regex) as R
 import Data.String.Regex.Flags (global, noFlags, multiline) as R
+import Data.Tuple (Tuple(..))
 import IdePurescript.Regex (replace', match', test')
 import Node.Encoding (Encoding(..))
 import Node.FS (FS)
+import Node.FS.Aff as FS
 import Node.Path (sep)
+import PscIde as P
 import PscIde.Command (ImportType(..))
+import PscIde.Command as C
 
 newtype Module = Module
   { moduleName :: String
@@ -63,6 +69,7 @@ type State =
   { main :: Maybe String
   , modules :: Array Module
   , identifiers :: Array String
+  , identToModule :: SM.StrMap Module
   }
 
 type Path = String
@@ -80,12 +87,13 @@ getModulesForFile port file fullText = do
   C.ImportList { moduleName, imports } <- either (const default) id <$> P.listImports port file
   let modules = map mod imports
       main = maybe (getMainModule fullText) Just moduleName
-      identifiers = concatMap idents modules
-  pure { main, modules, identifiers }
+      identToModule = SM.fromFoldable $ concatMap idents modules
+      identifiers = SM.keys identToModule
+  pure { main, modules, identifiers, identToModule }
   where
   default = C.ImportList { moduleName: Nothing, imports: [] }
   mod (C.Import imp) = Module imp
-  idents (Module { importType: Explicit ids }) = ids
+  idents m@(Module { importType: Explicit ids }) = flip Tuple m <$> ids
   idents _ = []
 
 getModulesForFileTemp :: forall eff. Int -> Path -> String -> Aff (net :: P.NET, fs :: FS | eff) State
@@ -120,8 +128,12 @@ getQualModule qualifier {modules} =
   qual q (Module { qualifier: Just q' }) = q == q'
   qual _ _ = false
 
+getModuleFromUnknownQualifier :: String -> State -> Maybe Module
+getModuleFromUnknownQualifier qual { identToModule } =
+  SM.lookup qual identToModule <|> SM.lookup ("class " <> qual) identToModule
+
 initialModulesState :: State
-initialModulesState =  { main: Nothing, modules: [], identifiers: [] }
+initialModulesState =  { main: Nothing, modules: [], identifiers: [], identToModule: SM.empty }
 
 findImportInsertPos :: String -> Int
 findImportInsertPos text =
