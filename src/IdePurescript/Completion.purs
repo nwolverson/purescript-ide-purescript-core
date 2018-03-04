@@ -57,7 +57,7 @@ getSuggestions port
     case match' explicitImportRegex line of
       Just [ Just _, Just mod, Just token ] -> do
         completions <- getCompletion port token mainModule Nothing [ mod ] getQualifiedModule opts
-        pure $ map (result (Just mod) token) completions
+        pure $ map (result Nothing token) completions
       _ -> pure []
   else
     case parsed of
